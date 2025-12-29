@@ -9,6 +9,7 @@ except ImportError:
 
 
 def unpack_and_deserialize(decompressed_data: bytes) -> dict:
+	emit_job_update(job_id, job_data)
 	"""
 	Unpacks and deserializes the decompressed data using Neuroglyph.
 	Returns a dict with the restored payload and metadata.

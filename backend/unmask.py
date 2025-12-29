@@ -6,6 +6,7 @@ import io
 import logging
 
 def unmask_alpha_layers(decrypted_image: bytes) -> dict:
+	emit_job_update(job_id, job_data)
 	"""
 	Separates the alpha (A) and embedded (B) layers from the decrypted image using Pillow.
 	Returns a dict with separated layers as bytes and metadata.

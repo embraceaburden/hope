@@ -18,6 +18,7 @@ def extract_binary_data(
 	adaptive: bool = True,
 	logging_enabled: bool = False
 ) -> dict:
+	emit_job_update(job_id, job_data)
 	"""
 	Extracts the hidden message from the image using stegoImageX's extract_text.
 	All extraction parameters are configurable. Returns the extracted binary blob and metadata.

@@ -477,21 +477,18 @@ def get_geometric_key(job_id: str) -> Any:
     )
 
 
-@socketio.on("connect")
-def handle_connect() -> None:
-    emit("connected", {"message": "Connected to Snowflake API"})
+@socketio.on('connect')
+def handle_connect():
+    print('Client connected')
 
-
-@socketio.on("subscribe_job")
-def handle_subscribe(data: dict[str, Any]) -> None:
-    job_id = data.get("jobId") if data else None
-    if not job_id:
-        return
+@socketio.on('subscribe_job')
+def handle_subscribe(data):
+    job_id = data.get('jobId')
     join_room(job_id)
-    job = _get_job(job_id)
-    if job:
-        emit("job_update", job)
 
+def emit_job_update(job_id, job_data):
+    """Call this function from anywhere in your pipeline"""
+    socketio.emit('job_update', job_data, room=job_id)
 
 def _process_encapsulation(job_id: str) -> None:
     job = _get_job(job_id)

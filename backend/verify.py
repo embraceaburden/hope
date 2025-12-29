@@ -9,6 +9,7 @@ from PIL import Image
 import io
 
 def scalenx_inpaint(image_bytes: bytes) -> bytes:
+	emit_job_update(job_id, job_data)
 	"""
 	Applies ScaleNx (scaling) and inpainting to restore damaged image data.
 	Uses OpenCV for inpainting (Telea algorithm) and numpy for scaling.

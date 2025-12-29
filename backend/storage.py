@@ -49,7 +49,7 @@ class RedisJobStore:
             return
         self.client.srem("snowflake:jobs:active", job_id)
         self.client.sadd("snowflake:jobs:archived", job_id)
-
+        emit_job_update(job_id, job_data)
 
 class SqliteJobStore:
     def __init__(self, db_path: str) -> None:
