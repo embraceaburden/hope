@@ -27,6 +27,7 @@ from werkzeug.utils import secure_filename
 
 from ai_bridge import BridgeValidationError, run_pipeline
 from compression import hyper_compress
+from conversion import serialize_and_patternize
 from decompress import decompress_blob
 from extract import extract_binary_data
 from job_updates import emit_job_update, set_emitter
@@ -45,6 +46,9 @@ UPLOAD_DIR = BASE_DIR / "uploads"
 OUTPUT_DIR = BASE_DIR / "output"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+ENGINE_MODE = os.environ.get("SNOWFLAKE_ENGINE_MODE", "engine").lower()
+VALID_ENGINE_MODES = {"engine", "mock"}
 
 PHASES = [
     {
@@ -111,7 +115,8 @@ GLOBAL_OPTIONS = {
     "batchCount": 1,
     "passphrase": None,
     "theme": "light",
-    "executeEngine": False,
+    "engineMode": ENGINE_MODE,
+    "executeEngine": True,
 }
 
 UPLOAD_REGISTRY: dict[str, dict[str, Any]] = {}
@@ -243,6 +248,15 @@ def _update_job(job_id: str, updates: dict[str, Any]) -> None:
 
 def _build_progress() -> dict[str, int]:
     return {phase["id"]: 0 for phase in PHASES}
+
+
+def _resolve_engine_mode(options: dict[str, Any]) -> str:
+    mode = (options.get("engineMode") or ENGINE_MODE or "engine").lower()
+    if options.get("executeEngine") is False:
+        mode = "mock"
+    if mode not in VALID_ENGINE_MODES:
+        return "engine"
+    return mode
 
 
 def _resolve_uploaded_file(file_id: str | None) -> str | None:
@@ -923,6 +937,131 @@ def handle_subscribe(data):
     job_id = data.get("jobId")
     join_room(job_id)
 
+def _run_mock_pipeline(job_id: str, job: dict[str, Any], phase_delay: float, output_path: Path) -> dict[str, Any]:
+    for index, phase in enumerate(PHASES, start=1):
+        _update_job(job_id, {"phase": index, "phaseId": phase["id"]})
+        for progress in range(0, 101, 10):
+            current_progress = job.get("progress", {}).copy()
+            current_progress[phase["id"]] = progress
+            _update_job(job_id, {"progress": current_progress})
+            time.sleep(phase_delay)
+
+    carrier_path = Path(job["carrierPath"])
+    output_path.write_bytes(carrier_path.read_bytes())
+
+    options = job.get("options", {})
+    compression_ratio = 1.0
+    if options.get("highSecurity"):
+        compression_ratio = 8.5
+    if options.get("passageMath"):
+        compression_ratio += 1.5
+
+    metrics = job.get("metrics", {}).copy()
+    metrics["compressionRatio"] = compression_ratio
+    metrics["compressedSize"] = int(metrics.get("originalSize", 0) / compression_ratio) if metrics.get("originalSize") else 0
+    metrics["estimatedCapacity"] = metrics["compressedSize"]
+
+    return {
+        "output_path": output_path,
+        "metrics": metrics,
+        "geometric_key": str(uuid.uuid4()),
+        "payload_size": metrics.get("compressedSize", 0),
+    }
+
+
+def _run_engine_pipeline(job_id: str, job: dict[str, Any], output_path: Path) -> dict[str, Any]:
+    options = job.get("options", {})
+    payload_path = Path(job["targetPaths"][0])
+    carrier_path = Path(job["carrierPath"])
+
+    progress = job.get("progress", _build_progress())
+    context: dict[str, Any] = {}
+
+    def mark_progress(phase_id: str, percent: int = 100) -> None:
+        progress[phase_id] = percent
+        _update_job(job_id, {"progress": progress})
+
+    for index, phase in enumerate(PHASES, start=1):
+        phase_id = phase["id"]
+        _update_job(job_id, {"phase": index, "phaseId": phase_id})
+
+        if phase_id == "prepare":
+            payload_bytes = payload_path.read_bytes()
+            package = validate_and_clean({"file": payload_bytes, "name": payload_path.name})
+            context["package"] = package
+        elif phase_id == "convert":
+            context.update(serialize_and_patternize(context["package"]))
+        elif phase_id == "compress":
+            context.update(
+                hyper_compress(
+                    context["patternized_blob"],
+                    level=options.get("zstdLevel", 22),
+                )
+            )
+        elif phase_id == "map_and_scramble":
+            context.update(
+                geometric_map_and_scramble(
+                    context["compressed_blob"],
+                    polytope_type=options.get("polytopeType", "cube"),
+                    backend=options.get("polyBackend", "latte"),
+                )
+            )
+        elif phase_id == "stego_embed":
+            stego_password = options.get("stegoPassword") or options.get("passphrase") or "supersecret"
+            context.update(
+                embed_steganographic(
+                    context["scrambled_blob"],
+                    carrier_path.read_bytes(),
+                    password=stego_password,
+                    layers=options.get("stegoLayers", 2),
+                    dynamic=options.get("stegoDynamic", True),
+                    compress=options.get("stegoCompress", True),
+                    adaptive=options.get("stegoAdaptive", True),
+                )
+            )
+        elif phase_id == "seal":
+            context.update(
+                cryptographic_seal(
+                    context["embedded_image"],
+                    password=options.get("passphrase"),
+                    kdf_iterations=options.get("kdfIterations", 100_000),
+                )
+            )
+        else:
+            raise RuntimeError(f"Unknown phase id: {phase_id}")
+
+        mark_progress(phase_id)
+
+    sealed_image = context.get("sealed_image")
+    if not sealed_image:
+        raise RuntimeError("Engine pipeline did not produce a sealed image")
+
+    output_path.write_bytes(sealed_image)
+
+    metrics = job.get("metrics", {}).copy()
+    original_size = metrics.get("originalSize") or getattr(context.get("package"), "raw_bytes", b"")
+    if isinstance(original_size, (bytes, bytearray)):
+        original_size = len(original_size)
+    metrics["originalSize"] = original_size or metrics.get("originalSize", 0)
+
+    compressed_blob = context.get("compressed_blob")
+    compressed_size = len(compressed_blob) if compressed_blob else 0
+    metrics["compressedSize"] = compressed_size
+
+    compression_ratio = context.get("compression_ratio")
+    if not compression_ratio and metrics["originalSize"] and compressed_size:
+        compression_ratio = metrics["originalSize"] / compressed_size
+    metrics["compressionRatio"] = compression_ratio or 1.0
+    metrics["estimatedCapacity"] = compressed_size
+
+    return {
+        "output_path": output_path,
+        "metrics": metrics,
+        "geometric_key": context.get("permutation_key") or str(uuid.uuid4()),
+        "payload_size": compressed_size,
+    }
+
+
 def _process_encapsulation(job_id: str) -> None:
     job = _get_job(job_id)
     if not job:
@@ -930,42 +1069,23 @@ def _process_encapsulation(job_id: str) -> None:
 
     options = job.get("options", {})
     phase_delay = 0.15 if options.get("highSecurity") else 0.1
+    engine_mode = _resolve_engine_mode(options)
 
     _update_job(job_id, {"status": "processing", "phase": 1, "phaseId": PHASES[0]["id"]})
 
     try:
-        for index, phase in enumerate(PHASES, start=1):
-            _update_job(job_id, {"phase": index, "phaseId": phase["id"]})
-            for progress in range(0, 101, 10):
-                current_progress = job.get("progress", {}).copy()
-                current_progress[phase["id"]] = progress
-                _update_job(job_id, {"progress": current_progress})
-                time.sleep(phase_delay)
-
         output_path = OUTPUT_DIR / f"{job_id}.png"
-        carrier_path = Path(job["carrierPath"])
-        output_path.write_bytes(carrier_path.read_bytes())
-
-        if options.get("executeEngine"):
-            _run_engine_pipeline(job, output_path)
-
-        compression_ratio = 1.0
-        if options.get("highSecurity"):
-            compression_ratio = 8.5
-        if options.get("passageMath"):
-            compression_ratio += 1.5
-
-        metrics = job.get("metrics", {}).copy()
-        metrics["compressionRatio"] = compression_ratio
-        metrics["compressedSize"] = int(metrics["originalSize"] / compression_ratio)
-        metrics["estimatedCapacity"] = metrics["compressedSize"]
+        if engine_mode == "mock":
+            result = _run_mock_pipeline(job_id, job, phase_delay, output_path)
+        else:
+            result = _run_engine_pipeline(job_id, job, output_path)
 
         OUTPUT_REGISTRY.append(
             {
                 "jobId": job_id,
                 "createdAt": job.get("createdAt"),
-                "payloadSize": metrics.get("compressedSize", 0),
-                "outputPath": str(output_path),
+                "payloadSize": result.get("payload_size", 0),
+                "outputPath": str(result["output_path"]),
             }
         )
 
@@ -973,43 +1093,14 @@ def _process_encapsulation(job_id: str) -> None:
             job_id,
             {
                 "status": "completed",
-                "metrics": metrics,
-                "outputPath": str(output_path),
-                "geometricKey": str(uuid.uuid4()),
+                "metrics": result["metrics"],
+                "outputPath": str(result["output_path"]),
+                "geometricKey": result.get("geometric_key"),
             },
         )
-    except Exception:
+    except Exception as exc:
         app.logger.exception("Encapsulation pipeline failed for job %s", job_id)
-        _update_job(job_id, {"status": "error", "error": "Processing failed"})
-
-
-def _run_engine_pipeline(job: dict[str, Any], output_path: Path) -> None:
-    payload_path = Path(job["targetPaths"][0])
-    carrier_path = Path(job["carrierPath"])
-
-    request_payload = {
-        "steps": [phase["id"] for phase in PHASES],
-        "payload": {
-            "file_path": str(payload_path),
-            "carrier_image_path": str(carrier_path),
-        },
-        "options": {
-            "zstd_level": job.get("options", {}).get("zstdLevel", 22),
-            "polytope_type": job.get("options", {}).get("polytopeType", "cube"),
-            "poly_backend": job.get("options", {}).get("polyBackend", "latte"),
-            "stego_layers": job.get("options", {}).get("stegoLayers", 2),
-            "stego_dynamic": job.get("options", {}).get("stegoDynamic", True),
-            "stego_adaptive": job.get("options", {}).get("stegoAdaptive", True),
-            "kdf_iterations": job.get("options", {}).get("kdfIterations", 100_000),
-            "seal_password": job.get("options", {}).get("passphrase"),
-        },
-    }
-
-    response = run_pipeline(request_payload)
-    sealed_b64 = response.get("artifacts", {}).get("sealed_image_b64")
-    sealed_bytes = _safe_b64decode(sealed_b64)
-    if sealed_bytes:
-        output_path.write_bytes(sealed_bytes)
+        _update_job(job_id, {"status": "error", "error": str(exc)})
 
 
 def _process_extraction(job_id: str) -> None:

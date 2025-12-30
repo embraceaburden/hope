@@ -1,290 +1,166 @@
-# The Forge - Flask Backend Setup
+# Forge Backend (Flask + Socket.IO)
 
-Complete Flask-SocketIO backend for The Forge steganography application.
+The backend provides the full Snowflake engine pipeline and orchestration APIs for the Forge command center. It exposes REST and Socket.IO endpoints for file uploads, encapsulation/extraction jobs, offline tooling, and engine health checks.
+
+## Architecture Overview
+
+**Core pipeline (hard-wired in `app.py`):**
+
+1. **Preparation** (`preparation.validate_and_clean`)
+2. **Neuroglyph Serialize** (`conversion.serialize_and_patternize`)
+3. **Zstandard Compress** (`compression.hyper_compress`)
+4. **Geometric Map + Scramble** (`map_and_scramble.geometric_map_and_scramble`)
+5. **Stego Embed** (`stego_engine.embed_steganographic`)
+6. **Cryptographic Seal** (`security.cryptographic_seal`)
+
+The encapsulation workflow in `app.py` now runs the engine modules directly (no placeholder steps). The pipeline is driven in `_run_engine_pipeline`, with per-phase progress updates and full error propagation.
 
 ## Quick Start
 
-1. **Install dependencies:**
-```bash
-pip install -r requirements.txt
-```
+1. **Install dependencies**
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-2. **Run the server:**
-```bash
-python app.py
-```
+2. **Create a `.env` file (optional)**
+   ```bash
+   cp .env.example .env
+   ```
 
-3. **Server runs on:**
+3. **Run the server**
+   ```bash
+   python app.py
+   ```
+
+4. **Access**
    - HTTP: `http://0.0.0.0:5000`
    - WebSocket: `ws://0.0.0.0:5000`
 
-## Integration Points
+## Configuration
 
-### Where to Add Your Snowflake Engine
+Configuration is controlled via environment variables (see `.env.example`).
 
-Look for comments marked `# YOUR ENGINE HERE` in `app.py`:
-exec(open("engine.py").read())
+| Variable | Purpose | Default |
+| --- | --- | --- |
+| `SNOWFLAKE_SECRET` | Flask secret key | `forge-secret` |
+| `FORGE_SOCKET_TOKEN` | Socket.IO auth token | `forge-secret` |
+| `SOCKETIO_PING_INTERVAL` | Socket.IO ping interval (seconds) | `25` |
+| `SOCKETIO_PING_TIMEOUT` | Socket.IO ping timeout (seconds) | `60` |
+| `SNOWFLAKE_DB_PATH` | SQLite database path | `./data/snowflake.db` |
+| `REDIS_URL` | Redis connection string | _disabled if unset_ |
+| `OLLAMA_URL` | Ollama base URL for `/api/health/ai` | `http://localhost:11434` |
+| `SNOWFLAKE_ENGINE_MODE` | `engine` (real pipeline) or `mock` (simulated) | `engine` |
 
-1. **Phase 1 (Triple-Smack):**
-   - Line ~230: Neuroglyph binary wrapping
-   - Line ~237: Zstandard compression
+**Engine mode behavior**
+- `engine` executes the full Snowflake pipeline (default).
+- `mock` simulates phases and returns the carrier image unchanged.
 
-2. **Phase 2 (Geometric):**
-   - Line ~260: PassageMath mapping
-   - Line ~267: Fisher-Yates shuffle
-   - Line ~274: StegoImageX embedding
+`executeEngine` and `engineMode` are also accepted in `/api/encapsulate` options for per-job overrides.
 
-3. **Phase 3 (Security):**
-   - Line ~287: Reverse shuffle
-   - Line ~294: Alpha masking
-   - Line ~301: AES-256-GCM encryption
+## API Endpoints
 
-4. **Extraction:**
-   - Line ~337: Each extraction step in the loop
+### Core
+- `GET /api/options` — available phases and global options
+- `POST /api/uploads` — upload a file for later reference
+- `POST /api/encapsulate` — start encapsulation job
+- `GET /api/jobs` — list recent jobs
+- `GET /api/job/<job_id>` — job status
+- `GET /api/download/<job_id>` — download finished output
+- `POST /api/extract` — start extraction job
+- `GET /api/extract/status/<job_id>` — extraction status
+- `GET /api/geometric/key/<job_id>` — retrieve permutation key
 
-### API Endpoints
+### Engine bridge and health
+- `POST /api/bridge/pipeline` — run arbitrary engine steps via JSON
+- `GET /api/health/ai` — Ollama health probe
 
-- `GET /api/options` - Fetch available phases and global options
-- `POST /api/uploads` - Upload a file for later use
-- `POST /api/encapsulate` - Start encapsulation job
-- `GET /api/jobs` - List recent jobs
-- `GET /api/job/<job_id>` - Get job status (polling)
-- `GET /api/download/<job_id>` - Download result
-- `POST /api/extract` - Extract from package
-- `GET /api/extract/status/<job_id>` - Extraction status
-- `GET /api/geometric/key/<job_id>` - Get geometric key
-- `POST /api/bridge/pipeline` - Run pipeline steps via the AI bridge
-- `GET /api/health/ai` - AI provider health (Ollama)
+### Offline tooling (multipart/form-data)
+- `POST /prepare`
+- `POST /compress`
+- `POST /map`
+- `POST /embed`
+- `POST /seal`
+- `POST /unlock`
+- `POST /unmask`
+- `POST /extract`
+- `POST /unshuffle`
+- `POST /decompress`
+- `POST /verify`
 
-## Offline Mode Operation
+## Running in Production
 
-The backend exposes local, file-based endpoints that mirror the Forge pipeline for offline execution.
-These are designed to be called from the Offline Tool Panel and accept `multipart/form-data` uploads.
-
-**Offline endpoints**
-
-- `POST /prepare` - Data preparation and validation
-- `POST /compress` - Zstandard compression
-- `POST /map` - Geometric mapping & scrambling
-- `POST /embed` - Steganographic embedding
-- `POST /seal` - Cryptographic seal (AES-GCM)
-- `POST /unlock` - Cryptographic unlock
-- `POST /unmask` - Alpha mask separation
-- `POST /extract` - Stego extraction
-- `POST /unshuffle` - Geometric unshuffle
-- `POST /decompress` - Zstandard decompression
-- `POST /verify` - Payload verification/restoration
-
-**Local dependencies**
-
-Offline execution uses the local pipeline modules in `backend/` and depends on:
-
-- `Pillow` for image handling
-- `zstandard` for compression
-- `pycryptodome` for cryptographic seal/unlock
-- `stegoimagex` for embed/extract (optional but required for stego steps)
-- `passagemath_polyhedra` for geometric mapping/unshuffle
-- `opencv-python` for verification/inpaint (optional, required for `/verify`)
-
-Install all backend dependencies with:
-
-```bash
-pip install -r requirements.txt
-```
-
-### AI Bridge: `/api/bridge/pipeline`
-
-**Request schema**
-
-```json
-{
-  "steps": ["prepare", "convert", "compress", "map_and_scramble", "stego_embed", "seal"],
-  "payload": {
-    "raw_bytes_b64": "...",
-    "file_path": "/path/to/file.bin",
-    "carrier_image_b64": "...",
-    "carrier_image_path": "/path/to/carrier.png"
-  },
-  "options": {
-    "zstd_level": 22,
-    "polytope_type": "cube",
-    "poly_backend": "latte"
-  }
-}
-```
-
-**Notes**
-
-- `steps` is optional (defaults to the full pipeline).
-- `payload` and `options` must be JSON objects.
-- For `prepare`, provide `raw_bytes_b64` or `file_path`.
-- For `stego_embed`, provide `carrier_image_b64` or `carrier_image_path`.
-
-### AI Health: `/api/health/ai`
-
-Checks Ollama availability. Configure the Ollama base URL via:
-
-```
-export OLLAMA_URL=http://localhost:11434
-```
-
-### WebSocket Auth & Connection Settings
-
-The Socket.IO server requires a token on connect. Configure the shared token with:
-
-```
-export FORGE_SOCKET_TOKEN=your-shared-socket-token
-```
-
-Clients must provide the token via the Socket.IO auth payload (recommended) or the
-`Authorization: Bearer <token>` header. Example client connection:
-
-```javascript
-const socket = io("http://localhost:5000", {
-  auth: { token: "your-shared-socket-token" }
-});
-```
-
-Heartbeat tuning is available via environment variables:
-
-```
-export SOCKETIO_PING_INTERVAL=25
-export SOCKETIO_PING_TIMEOUT=60
-```
-
-### WebSocket Events
-
-**Client → Server:**
-- `subscribe_job` - Subscribe to job updates
-  ```javascript
-  socket.emit('subscribe_job', { jobId: 'uuid-here' })
+- Use a production WSGI server (gunicorn + gevent worker):
+  ```bash
+  gunicorn -k geventwebsocket.gunicorn.workers.GeventWebSocketWorker -w 1 app:app
   ```
+- Set strong secrets for `SNOWFLAKE_SECRET` and `FORGE_SOCKET_TOKEN`.
+- Configure CORS origins in `app.py` before deployment.
+- Set up Redis if you run multiple workers or multiple app instances.
 
-**Server → Client:**
-- `job_update` - Real-time progress updates
-  ```javascript
-  socket.on('job_update', (data) => {
-    // data contains full job object with progress
-  })
-  ```
+## Maintenance Guide
 
-## Storage Layer
+**Daily/weekly:**
+- Monitor `/api/health/ai` and job error rates in logs.
+- Rotate logs (or ship to a centralized log system).
 
-The backend now supports **two databases**:
+**Monthly:**
+- Vacuum/backup `SNOWFLAKE_DB_PATH` (SQLite) or migrate to a managed DB if needed.
+- Validate Redis persistence and memory settings if using `REDIS_URL`.
 
-1. **Redis (live job state)** — fast, ephemeral job state for Socket.IO updates.
-2. **SQLite (persistent history)** — durable job history and audit metadata.
+**When upgrading engine dependencies:**
+- Run `benchmarks/validate_endpoints.py` and `benchmarks/benchmark_suite.py`.
+- Validate a full encapsulation/extraction flow before releasing.
 
-### Redis (Live Job State)
-
-Set the environment variable before running the server:
-
-```
-ENV SNOWFLAKE_DB_PATH="/app/data/snowflake.db"  # for dockerfile
-export REDIS_URL=redis://redis:6379/0
-```
-
-Redis keys used:
-
-- `snowflake:job:<job_id>` → JSON serialized job object
-- `snowflake:jobs:active` → Set of active job IDs
-- `snowflake:jobs:archived` → Set of completed/errored job IDs
-
-### SQLite (Persistent History)
-
-Set (optional) database path:
-
-```
-export SNOWFLAKE_DB_PATH=./data/snowflake.db
-```
-
-Schema overview:
-
-```
-jobs (
-  job_id TEXT PRIMARY KEY,
-  job_type TEXT,
-  status TEXT,
-  created_at TEXT,
-  updated_at TEXT,
-  options_json TEXT,
-  metrics_json TEXT,
-  geometric_key TEXT,
-  output_path TEXT,
-  error TEXT
-)
-
-job_events (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  job_id TEXT,
-  event_type TEXT,
-  payload_json TEXT,
-  created_at TEXT
-)
-
-extraction_files (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  job_id TEXT,
-  filename TEXT,
-  size INTEGER,
-  created_at TEXT
-)
-```
-
-## File Structure
-
-```
-uploads/          # Uploaded files (temporary)
-output/           # Generated steganographic packages
-app.py            # Main Flask server
-requirements.txt  # Python dependencies
-```
-
-## Production Notes
-
-- Run Redis for shared job state if using multiple workers
-- Remove `allow_unsafe_werkzeug=True`
-- Use proper secrets (change SECRET_KEY)
-- Set up proper CORS origins
-- Add rate limiting
-- Use gunicorn: `gunicorn -k geventwebsocket.gunicorn.workers.GeventWebSocketWorker -w 1 app:app`
-
-## Validation & Benchmarking
-
-Run endpoint validation (health + core API flow):
-
-```bash
-python benchmarks/validate_endpoints.py --base-url http://localhost:5000
-```
-
-Run the benchmark suite (latency + completion metrics for presentation):
-
-```bash
-python benchmarks/benchmark_suite.py --base-url http://localhost:5000 --iterations 3 --output ./benchmarks/results.json
-```
-
-## Testing
+## Local Validation
 
 ```bash
 # Health check
 curl http://localhost:5000/
 
-# Test encapsulation (with curl)
+# Encapsulation (multipart)
 curl -X POST http://localhost:5000/api/encapsulate \
   -F "target_files=@file1.txt" \
   -F "carrier_image=@image.png" \
   -F 'options={"compressionMode":"lossless","passphrase":"test123"}'
 ```
 
-## Frontend Connection
+## Dependencies (Engine Pipeline)
 
-Update your frontend `.env`:
+The full engine pipeline requires:
+- `Pillow` (image processing)
+- `zstandard` (compression)
+- `pycryptodome` (AES-GCM sealing/unsealing)
+- `stegoimagex` (steganographic embedding)
+- `passagemath_polyhedra` (geometric mapping)
+- `neuroglyph_quantum` or `neuroglyph_neural` (serialize/patternize)
+
+Install all backend dependencies with:
+```bash
+pip install -r requirements.txt
 ```
-VITE_FORGE_BACKEND_URL=http://localhost:5000
+
+## WebSocket Usage
+
+```javascript
+const socket = io("http://localhost:5000", {
+  auth: { token: "your-shared-socket-token" }
+});
+
+socket.emit("subscribe_job", { jobId: "uuid-here" });
+
+socket.on("job_update", (data) => {
+  console.log("job_update", data);
+});
 ```
 
-The `snowflakeClient.js` will automatically connect to this URL.
+## File Layout
 
----
-
-**You're all set!** Just plug in your Snowflake engine code and you're ready to forge! 🔥
+```
+backend/
+  app.py
+  requirements.txt
+  .env.example
+  uploads/
+  output/
+  data/
+```
