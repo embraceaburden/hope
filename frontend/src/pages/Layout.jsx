@@ -179,8 +179,8 @@ export default function Layout({ children, currentPageName }) {
       </div>
 
       {/* Custom Heritage styling */}
-      <style jsx>{`
-        :global(body) {
+      <style>{`
+        body {
           font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
         }
         
