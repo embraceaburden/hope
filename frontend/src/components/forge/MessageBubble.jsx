@@ -112,9 +112,9 @@ export default function MessageBubble({ message }) {
             {isUser ? (
               <p className="text-sm leading-relaxed">{message.content}</p>
             ) : (
-              <ReactMarkdown 
-                className="text-sm prose prose-sm max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
-                components={{
+              <div className="text-sm prose prose-sm max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+                <ReactMarkdown 
+                  components={{
                   code: ({ inline, className, children, ...props }) => {
                     return !inline ? (
                       <pre className="bg-[var(--color-pine-teal)] text-white rounded-lg p-3 overflow-x-auto my-2">
@@ -129,10 +129,11 @@ export default function MessageBubble({ message }) {
                   p: ({ children }) => <p className="my-1 leading-relaxed text-[var(--color-pine-teal)]">{children}</p>,
                   ul: ({ children }) => <ul className="my-1 ml-4 list-disc text-[var(--color-pine-teal)]">{children}</ul>,
                   ol: ({ children }) => <ol className="my-1 ml-4 list-decimal text-[var(--color-pine-teal)]">{children}</ol>,
-                }}
-              >
-                {message.content}
-              </ReactMarkdown>
+                  }}
+                >
+                  {message.content}
+                </ReactMarkdown>
+              </div>
             )}
           </div>
         )}
