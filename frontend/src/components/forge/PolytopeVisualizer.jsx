@@ -40,7 +40,7 @@ const POLYTOPE_CONFIGS = {
       return [Math.cos(angle) * 2, Math.sin(angle) * 2, z];
     }),
     edges: Array.from({ length: 12 }, (_, i) => [i, (i + 1) % 12]),
-    color: '#0c413c'
+    color: '#0c414c'
   }
 };
 
@@ -57,7 +57,7 @@ export default function PolytopeVisualizer({ polytopeType = 'cube', permutationK
 
     // Scene setup
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xf6eee6);
+    scene.background = new THREE.Color(0xecebea);
     sceneRef.current = scene;
 
     // Camera

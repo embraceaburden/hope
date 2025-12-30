@@ -45,12 +45,12 @@ export default function Layout({ children, currentPageName }) {
         onClick={() => setSidebarOpen(!sidebarOpen)}
         className="fixed left-4 top-4 z-50 p-2 rounded-lg transition-all"
         style={{ 
-          background: sidebarOpen ? 'transparent' : 'linear-gradient(135deg, #bc804d 0%, #9d442a 100%)',
+          background: sidebarOpen ? 'transparent' : 'linear-gradient(135deg, var(--color-gold) 0%, var(--color-copper) 100%)',
           boxShadow: sidebarOpen ? 'none' : '0 4px 12px rgba(188, 128, 77, 0.3)'
         }}
       >
         {sidebarOpen ? (
-          <X className="h-6 w-6" style={{ color: '#0c413c' }} />
+          <X className="h-6 w-6" style={{ color: 'var(--color-pine-teal)' }} />
         ) : (
           <Menu className="h-6 w-6 text-white" />
         )}
@@ -79,11 +79,14 @@ export default function Layout({ children, currentPageName }) {
           {/* Logo */}
           <div className="p-6 border-b" style={{ borderColor: 'rgba(188, 128, 77, 0.2)' }}>
             <Link to={createPageUrl('Dashboard')} className="flex items-center gap-3 group">
-              <div className="h-12 w-12 rounded-xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform" style={{ background: 'linear-gradient(135deg, #bc804d 0%, #9d442a 100%)' }}>
+              <div
+                className="h-12 w-12 rounded-xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform"
+                style={{ background: 'linear-gradient(135deg, var(--color-gold) 0%, var(--color-copper) 100%)' }}
+              >
                 <Zap className="h-7 w-7 text-white" />
               </div>
               <div>
-                <h1 className="text-xl font-bold" style={{ color: '#0c413c' }}>
+                <h1 className="text-xl font-bold" style={{ color: 'var(--color-pine-teal)' }}>
                   The Forge
                 </h1>
                 <p className="text-xs" style={{ color: '#6b7280' }}>
@@ -105,8 +108,8 @@ export default function Layout({ children, currentPageName }) {
                   to={createPageUrl(item.page)}
                   className="flex items-center gap-3 px-4 py-3 rounded-lg transition-all"
                   style={isActive ? 
-                    { background: 'linear-gradient(135deg, #bc804d 0%, #9d442a 100%)', color: 'white', boxShadow: '0 4px 12px rgba(188, 128, 77, 0.3)' } : 
-                    { color: '#0c413c' }
+                    { background: 'linear-gradient(135deg, var(--color-gold) 0%, var(--color-copper) 100%)', color: 'white', boxShadow: '0 4px 12px rgba(188, 128, 77, 0.3)' } : 
+                    { color: 'var(--color-pine-teal)' }
                   }
                 >
                   <Icon className="h-5 w-5" />
