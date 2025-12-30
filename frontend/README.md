@@ -16,7 +16,11 @@ Create a `.env` file to point the UI at the Forge backend:
 
 ```
 VITE_FORGE_BACKEND_URL=http://localhost:5000
+VITE_FORGE_SOCKET_TOKEN=your-shared-socket-token
 ```
+
+The Socket.IO client uses `VITE_FORGE_SOCKET_TOKEN` (or `localStorage` key
+`forgeSocketToken`) to authenticate the WebSocket connection.
 
 ### AI provider configuration
 

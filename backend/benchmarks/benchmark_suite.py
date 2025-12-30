@@ -1,5 +1,6 @@
 import argparse
 import json
+import os
 import statistics
 import tempfile
 import time
@@ -74,7 +75,7 @@ def wait_for_extraction(base_url: str, job_id: str, timeout_s: int) -> dict:
     raise TimeoutError(f"Timed out waiting for extraction {job_id}")
 
 
-def measure_socket_updates(base_url: str, job_id: str) -> dict:
+def measure_socket_updates(base_url: str, job_id: str, socket_token: str) -> dict:
     sio = socketio.Client()
     first_update_time = None
     completion_time = None
@@ -92,7 +93,11 @@ def measure_socket_updates(base_url: str, job_id: str) -> dict:
             completion_time = now
             done["completed"] = True
 
-    sio.connect(base_url, transports=["websocket"])
+    sio.connect(
+        base_url,
+        transports=["websocket"],
+        auth={"token": socket_token},
+    )
     start = time.perf_counter()
     sio.emit("subscribe_job", {"jobId": job_id})
 
@@ -117,6 +122,11 @@ def main() -> None:
     parser.add_argument("--timeout", type=int, default=DEFAULT_TIMEOUT_S)
     parser.add_argument("--output", default=None, help="Write JSON report to file")
     parser.add_argument("--passphrase", default="benchmark-pass")
+    parser.add_argument(
+        "--socket-token",
+        default=os.environ.get("FORGE_SOCKET_TOKEN"),
+        help="Socket.IO auth token (defaults to FORGE_SOCKET_TOKEN env var)",
+    )
     args = parser.parse_args()
 
     base_url = args.base_url.rstrip("/")
@@ -131,6 +141,11 @@ def main() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         tmp_dir = Path(tmp)
         text_path, image_path = create_payload(tmp_dir)
+
+        if not args.socket_token:
+            raise RuntimeError(
+                "Socket.IO token required. Set --socket-token or FORGE_SOCKET_TOKEN."
+            )
 
         for iteration in range(args.iterations):
             with open(text_path, "rb") as text_file, open(image_path, "rb") as image_file:
@@ -155,7 +170,9 @@ def main() -> None:
             job_id = response.json()["jobId"]
 
             if iteration == 0:
-                socket_metrics.append(measure_socket_updates(base_url, job_id))
+                socket_metrics.append(
+                    measure_socket_updates(base_url, job_id, args.socket_token)
+                )
 
             start = time.perf_counter()
             job_payload = wait_for_job(base_url, job_id, args.timeout)

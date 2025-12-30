@@ -16,7 +16,13 @@ export default function EnhancedJobCreator({ onJobCreated, backendUrl, isOffline
   const [targetFiles, setTargetFiles] = useState([]);
   const [carrierImage, setCarrierImage] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const { subscribeToJob } = useWebSocket(backendUrl);
+  const {
+    subscribeToJob,
+    connectionState,
+    retryAttempt,
+    maxRetries,
+    lastError
+  } = useWebSocket(backendUrl);
   
   // Options
   const [compressionMode, setCompressionMode] = useState('high-ratio');
@@ -80,6 +86,31 @@ export default function EnhancedJobCreator({ onJobCreated, backendUrl, isOffline
     }
   };
 
+  const statusLabel = (() => {
+    if (connectionState === 'missing-token') {
+      return 'Socket auth token missing';
+    }
+    if (connectionState === 'reconnecting') {
+      return `Reconnecting (${retryAttempt}/${maxRetries})`;
+    }
+    if (connectionState === 'failed') {
+      return 'Reconnect failed';
+    }
+    if (connectionState === 'error') {
+      return lastError?.message || 'Connection error';
+    }
+    return connectionState.replace('-', ' ');
+  })();
+
+  const statusTone = (() => {
+    if (connectionState === 'connected') return 'text-emerald-600';
+    if (connectionState === 'reconnecting') return 'text-amber-600';
+    if (connectionState === 'missing-token' || connectionState === 'failed' || connectionState === 'error') {
+      return 'text-red-600';
+    }
+    return 'text-gray-500';
+  })();
+
   return (
     <Card className="glass-panel">
       <CardHeader className="border-b border-[var(--color-gold)]/20 heritage-gradient-subtle">
@@ -87,6 +118,9 @@ export default function EnhancedJobCreator({ onJobCreated, backendUrl, isOffline
           <Zap className="h-5 w-5 text-[var(--color-gold)]" />
           Create Encapsulation Job
         </CardTitle>
+        <p className={`text-xs ${statusTone}`}>
+          Socket status: {statusLabel}
+        </p>
       </CardHeader>
 
       <CardContent className="p-6 space-y-6">

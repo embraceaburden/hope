@@ -1,5 +1,6 @@
 import argparse
 import json
+import os
 import tempfile
 import time
 from pathlib import Path
@@ -46,7 +47,7 @@ def wait_for_extraction(base_url: str, job_id: str, timeout_s: int) -> dict:
     raise TimeoutError(f"Timed out waiting for extraction {job_id}")
 
 
-def validate_socketio(base_url: str, job_id: str) -> dict:
+def validate_socketio(base_url: str, job_id: str, socket_token: str) -> dict:
     sio = socketio.Client()
     updates = []
     completed = {"done": False}
@@ -59,7 +60,11 @@ def validate_socketio(base_url: str, job_id: str) -> dict:
         if data.get("status") in {"completed", "error"}:
             completed["done"] = True
 
-    sio.connect(base_url, transports=["websocket"])
+    sio.connect(
+        base_url,
+        transports=["websocket"],
+        auth={"token": socket_token},
+    )
     sio.emit("subscribe_job", {"jobId": job_id})
 
     start = time.time()
@@ -81,9 +86,19 @@ def main() -> None:
     parser.add_argument("--base-url", default="http://localhost:5000")
     parser.add_argument("--timeout", type=int, default=DEFAULT_TIMEOUT_S)
     parser.add_argument("--passphrase", default="validation-pass")
+    parser.add_argument(
+        "--socket-token",
+        default=os.environ.get("FORGE_SOCKET_TOKEN"),
+        help="Socket.IO auth token (defaults to FORGE_SOCKET_TOKEN env var)",
+    )
     args = parser.parse_args()
 
     base_url = args.base_url.rstrip("/")
+
+    if not args.socket_token:
+        raise RuntimeError(
+            "Socket.IO token required. Set --socket-token or FORGE_SOCKET_TOKEN."
+        )
 
     health = requests.get(f"{base_url}/", timeout=10)
     health.raise_for_status()
@@ -110,7 +125,7 @@ def main() -> None:
         response.raise_for_status()
         job_id = response.json()["jobId"]
 
-        socket_validation = validate_socketio(base_url, job_id)
+        socket_validation = validate_socketio(base_url, job_id, args.socket_token)
         job_payload = wait_for_job(base_url, job_id, args.timeout)
 
         if job_payload.get("status") != "completed":
