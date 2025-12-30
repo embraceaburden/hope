@@ -39,7 +39,7 @@ export default function Dashboard() {
     try {
       const response = await fetch(`${config.backend_url}/api/jobs`);
       if (!response.ok) {
-        throw new Error('Failed to fetch jobs');
+        throw new Error(`Failed to fetch jobs: ${response.statusText}`);
       }
       const data = await response.json();
       if (Array.isArray(data)) {
@@ -47,6 +47,7 @@ export default function Dashboard() {
       }
       return data.jobs || [];
     } catch (error) {
+      console.warn('Job fetch failed:', error);
       return [];
     }
   };
@@ -235,6 +236,7 @@ export default function Dashboard() {
 
             {/* Job Creator */}
             <EnhancedJobCreator 
+              backendUrl={config.backend_url}
               onJobCreated={(job) => {
                 queryClient.invalidateQueries({ queryKey: ['processingJobs'] });
                 setSelectedJob(job);

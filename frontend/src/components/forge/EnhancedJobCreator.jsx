@@ -12,11 +12,11 @@ import { forgeApi } from './forgeApi';
 import { useWebSocket } from './useWebSocket';
 import { toast } from 'sonner';
 
-export default function EnhancedJobCreator({ onJobCreated }) {
+export default function EnhancedJobCreator({ onJobCreated, backendUrl }) {
   const [targetFiles, setTargetFiles] = useState([]);
   const [carrierImage, setCarrierImage] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const { subscribeToJob } = useWebSocket();
+  const { subscribeToJob } = useWebSocket(backendUrl);
   
   // Options
   const [compressionMode, setCompressionMode] = useState('high-ratio');

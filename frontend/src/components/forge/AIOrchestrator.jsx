@@ -2,20 +2,26 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { X, Minus, Maximize2, MessageSquare, Upload, Send, Loader2 } from 'lucide-react';
+import { X, Minus, MessageSquare, Upload, Send, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import MessageBubble from './MessageBubble';
+import { getOllamaConfig, sendOllamaChat } from '@/lib/aiChatClient';
 
 export default function AIOrchestrator({ onJobCreate, onConfigUpdate }) {
   const [isExpanded, setIsExpanded] = useState(true);
   const [isMinimized, setIsMinimized] = useState(false);
-  const [position, setPosition] = useState({ x: window.innerWidth - 420, y: 20 });
+  const [position, setPosition] = useState(() => ({
+    x: typeof window !== 'undefined' ? window.innerWidth - 420 : 0,
+    y: 20
+  }));
   const [conversation, setConversation] = useState(null);
   const [messages, setMessages] = useState([]);
   const [inputValue, setInputValue] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState([]);
+  const [provider, setProvider] = useState('ollama');
   const baseClient = typeof window !== 'undefined' ? window.base44 : null;
+  const ollamaConfig = getOllamaConfig();
   
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -23,17 +29,20 @@ export default function AIOrchestrator({ onJobCreate, onConfigUpdate }) {
   const isDragging = useRef(false);
   const dragOffset = useRef({ x: 0, y: 0 });
 
+  const isBase44Available = Boolean(baseClient?.agents?.createConversation);
+
   // Initialize conversation
   useEffect(() => {
+    setProvider(isBase44Available ? 'base44' : 'ollama');
     initConversation();
-  }, []);
+  }, [isBase44Available]);
 
   const initConversation = async () => {
-    if (!baseClient?.agents?.createConversation) {
+    if (!isBase44Available) {
       setMessages([
         {
           role: 'assistant',
-          content: 'Forge Intelligence is offline. Connect the base44 agent service to enable orchestration.'
+          content: `Forge Intelligence is running locally via Ollama (${ollamaConfig.model}).`
         }
       ]);
       return;
@@ -57,7 +66,7 @@ export default function AIOrchestrator({ onJobCreate, onConfigUpdate }) {
   useEffect(() => {
     if (!conversation?.id) return;
 
-    if (!baseClient?.agents?.subscribeToConversation) return;
+    if (!isBase44Available) return;
 
     const unsubscribe = baseClient.agents.subscribeToConversation(conversation.id, (data) => {
       setMessages(data.messages);
@@ -130,14 +139,6 @@ export default function AIOrchestrator({ onJobCreate, onConfigUpdate }) {
 
   const handleSendMessage = async () => {
     if (!inputValue.trim() && uploadedFiles.length === 0) return;
-    if (!conversation) return;
-    if (!baseClient?.agents?.addMessage) {
-      setMessages((prev) => ([
-        ...prev,
-        { role: 'assistant', content: 'Messaging is unavailable until base44 is connected.' }
-      ]));
-      return;
-    }
 
     const messageContent = inputValue.trim() || 'I have uploaded files for processing';
     const fileUrls = uploadedFiles.map(f => f.url);
@@ -147,13 +148,41 @@ export default function AIOrchestrator({ onJobCreate, onConfigUpdate }) {
     setUploadedFiles([]);
 
     try {
-      await baseClient.agents.addMessage(conversation, {
-        role: 'user',
-        content: messageContent,
-        file_urls: fileUrls.length > 0 ? fileUrls : undefined
-      });
+      if (isBase44Available) {
+        if (!conversation || !baseClient?.agents?.addMessage) {
+          setMessages((prev) => ([
+            ...prev,
+            { role: 'assistant', content: 'Messaging is unavailable until base44 is connected.' }
+          ]));
+          return;
+        }
+        await baseClient.agents.addMessage(conversation, {
+          role: 'user',
+          content: messageContent,
+          file_urls: fileUrls.length > 0 ? fileUrls : undefined
+        });
+      } else {
+        const nextMessages = [
+          ...messages,
+          { role: 'user', content: messageContent }
+        ];
+        setMessages(nextMessages);
+        const responseText = await sendOllamaChat({
+          messages: nextMessages,
+          baseUrl: ollamaConfig.baseUrl,
+          model: ollamaConfig.model
+        });
+        setMessages((prev) => ([
+          ...prev,
+          { role: 'assistant', content: responseText || 'No response received from Ollama.' }
+        ]));
+      }
     } catch (error) {
       console.error('Failed to send message:', error);
+      setMessages((prev) => ([
+        ...prev,
+        { role: 'assistant', content: `Error sending message: ${error.message}` }
+      ]));
       setIsProcessing(false);
     }
   };
@@ -203,6 +232,9 @@ export default function AIOrchestrator({ onJobCreate, onConfigUpdate }) {
             <div className="flex items-center gap-2">
               <div className="h-2 w-2 rounded-full bg-green-400 animate-pulse" />
               <span className="font-semibold">Forge Intelligence</span>
+              <span className="text-[10px] uppercase tracking-wide bg-white/20 px-2 py-0.5 rounded-full">
+                {provider}
+              </span>
             </div>
             <div className="flex gap-2">
               <Button
