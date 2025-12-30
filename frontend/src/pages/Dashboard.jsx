@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -24,16 +24,37 @@ export default function Dashboard() {
   const [systemMode, setSystemMode] = useState('online');
   const queryClient = useQueryClient();
 
-  const config = configs[0] || {
+  const [config] = useState(() => ({
     mode: 'online',
-    backend_url: 'http://localhost:5000',
-    theme: 'light'
+    backend_url: import.meta.env.VITE_FORGE_BACKEND_URL || 'http://localhost:5000',
+    theme: 'light',
+    ai_orchestrator_enabled: true
+  }));
+
+  const toggleMode = () => {
+    setSystemMode((mode) => (mode === 'online' ? 'offline' : 'online'));
+  };
+
+  const fetchJobs = async () => {
+    try {
+      const response = await fetch(`${config.backend_url}/api/jobs`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch jobs');
+      }
+      const data = await response.json();
+      if (Array.isArray(data)) {
+        return data;
+      }
+      return data.jobs || [];
+    } catch (error) {
+      return [];
+    }
   };
 
   // Fetch processing jobs
-  const { data: jobs, isLoading: jobsLoading } = useQuery({
-    queryKey: ['processingJobs'],
-    queryFn: () => backend.entities.ProcessingJob.list('-created_date', 50),
+  const { data: jobs = [] } = useQuery({
+    queryKey: ['processingJobs', config.backend_url],
+    queryFn: fetchJobs,
     initialData: [],
     refetchInterval: systemMode === 'online' ? 2000 : false
   });

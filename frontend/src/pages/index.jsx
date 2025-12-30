@@ -43,11 +43,11 @@ function PagesContent() {
                     <Route path="/" element={<Dashboard />} />
                 
                 
-                <Route path="/Dashboard" element={<Dashboard />} />
+                <Route path="/dashboard" element={<Dashboard />} />
                 
-                <Route path="/Documentation" element={<Documentation />} />
+                <Route path="/documentation" element={<Documentation />} />
                 
-                <Route path="/BackendSetup" element={<BackendSetup />} />
+                <Route path="/backendsetup" element={<BackendSetup />} />
                 
             </Routes>
         </Layout>
