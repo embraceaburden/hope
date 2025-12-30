@@ -12,7 +12,7 @@ import { forgeApi } from './forgeApi';
 import { useWebSocket } from './useWebSocket';
 import { toast } from 'sonner';
 
-export default function EnhancedJobCreator({ onJobCreated, backendUrl }) {
+export default function EnhancedJobCreator({ onJobCreated, backendUrl, isOfflineMode = false, onQueueJob }) {
   const [targetFiles, setTargetFiles] = useState([]);
   const [carrierImage, setCarrierImage] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -42,20 +42,29 @@ export default function EnhancedJobCreator({ onJobCreated, backendUrl }) {
 
     setIsProcessing(true);
 
+    const options = {
+      compression_mode: compressionMode,
+      noise_level: noiseLevel,
+      encryption,
+      hashing,
+      passphrase,
+      key_iterations: keyIterations
+    };
+
     try {
-      const options = {
-        compression_mode: compressionMode,
-        noise_level: noiseLevel,
-        encryption,
-        hashing,
-        passphrase,
-        key_iterations: keyIterations
-      };
+      if (isOfflineMode && onQueueJob) {
+        const queuedJob = await onQueueJob({ targetFiles, carrierImage, options });
+        toast.success(`Queued job ${queuedJob.id} for sync.`);
+        if (onJobCreated) {
+          onJobCreated({ jobId: queuedJob.id, status: 'queued', offline: true });
+        }
+        return;
+      }
 
       const result = await forgeApi.encapsulate(targetFiles, carrierImage, options);
-      
+
       toast.success('Job created successfully!');
-      
+
       // Subscribe to WebSocket updates
       subscribeToJob(result.jobId, (update) => {
         console.log('Job update:', update);
@@ -64,7 +73,6 @@ export default function EnhancedJobCreator({ onJobCreated, backendUrl }) {
       if (onJobCreated) {
         onJobCreated(result);
       }
-
     } catch (error) {
       toast.error(`Failed to create job: ${error.message}`);
     } finally {

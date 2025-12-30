@@ -66,6 +66,15 @@ const logProviderMetric = ({ provider, latencyMs, ok, attempts, error }) => {
   }
 };
 
+const fetchWithTimeout = async (url, options = {}, timeoutMs = DEFAULT_TIMEOUT_MS) => {
+  const { signal, cleanup } = createAbortController(timeoutMs, options?.signal);
+  try {
+    return await fetch(url, { ...options, signal });
+  } finally {
+    cleanup();
+  }
+};
+
 const fetchWithRetry = async (url, options, { timeoutMs, maxRetries, backoffMs } = {}) => {
   let attempt = 0;
   const retries = typeof maxRetries === 'number' ? maxRetries : DEFAULT_MAX_RETRIES;
@@ -176,6 +185,27 @@ export async function sendOllamaChat({
   });
 
   return typeof data === 'string' ? data : '';
+}
+
+export async function checkOllamaModelReady({
+  baseUrl,
+  model,
+  timeoutMs = DEFAULT_TIMEOUT_MS
+} = {}) {
+  const endpoint = `${baseUrl || DEFAULT_OLLAMA_URL}/api/tags`;
+  const response = await fetchWithTimeout(endpoint, { method: 'GET' }, timeoutMs);
+  if (!response.ok) {
+    throw new Error(`Ollama tags request failed with status ${response.status}`);
+  }
+  const data = await parseResponseBody(response);
+  const models = Array.isArray(data?.models) ? data.models : [];
+  const targetModel = model || DEFAULT_OLLAMA_MODEL;
+  const available = models.some((entry) => entry?.name === targetModel);
+  return {
+    available,
+    model: targetModel,
+    models: models.map((entry) => entry?.name).filter(Boolean)
+  };
 }
 
 export function getOllamaConfig() {

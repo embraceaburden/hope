@@ -22,6 +22,44 @@ const handleJsonResponse = async (response, fallbackMessage) => {
   return data;
 };
 
+const buildEncapsulationFormData = (targetFiles, carrierImage, options = {}) => {
+  const formData = new FormData();
+
+  targetFiles.forEach((file) => {
+    formData.append('target_files', file);
+  });
+  formData.append('carrier_image', carrierImage);
+  formData.append(
+    'options',
+    JSON.stringify({
+      compression_mode: options.compression_mode || 'high-ratio',
+      noise_level: options.noise_level || 30,
+      encryption: options.encryption || 'aes-256-gcm',
+      hashing: options.hashing || 'sha-256',
+      passphrase: options.passphrase,
+      key_iterations: options.key_iterations || 100000,
+      polytope_type: options.polytope_type || 'cube',
+      zstd_level: options.zstd_level || 22,
+      stego_layers: options.stego_layers || 2,
+      stego_dynamic: options.stego_dynamic !== false,
+      stego_adaptive: options.stego_adaptive !== false,
+      poly_backend: options.poly_backend || 'latte'
+    })
+  );
+
+  return formData;
+};
+
+const encapsulateWithBaseUrl = async (baseUrl, targetFiles, carrierImage, options = {}) => {
+  const formData = buildEncapsulationFormData(targetFiles, carrierImage, options);
+  const response = await fetch(`${baseUrl}/api/encapsulate`, {
+    method: 'POST',
+    body: formData
+  });
+
+  return handleJsonResponse(response, `Encapsulation failed: ${response.statusText}`);
+};
+
 const validatePipelineRequest = (request) => {
   if (!request || typeof request !== 'object' || Array.isArray(request)) {
     throw new Error('Pipeline request must be an object.');
@@ -75,33 +113,14 @@ export const forgeApi = {
    * Start encapsulation pipeline
    */
   async encapsulate(targetFiles, carrierImage, options = {}) {
-    const formData = new FormData();
-    
-    targetFiles.forEach(file => {
-      formData.append('target_files', file);
-    });
-    formData.append('carrier_image', carrierImage);
-    formData.append('options', JSON.stringify({
-      compression_mode: options.compression_mode || 'high-ratio',
-      noise_level: options.noise_level || 30,
-      encryption: options.encryption || 'aes-256-gcm',
-      hashing: options.hashing || 'sha-256',
-      passphrase: options.passphrase,
-      key_iterations: options.key_iterations || 100000,
-      polytope_type: options.polytope_type || 'cube',
-      zstd_level: options.zstd_level || 22,
-      stego_layers: options.stego_layers || 2,
-      stego_dynamic: options.stego_dynamic !== false,
-      stego_adaptive: options.stego_adaptive !== false,
-      poly_backend: options.poly_backend || 'latte'
-    }));
+    return encapsulateWithBaseUrl(BASE_URL, targetFiles, carrierImage, options);
+  },
 
-    const response = await fetch(`${BASE_URL}/api/encapsulate`, {
-      method: 'POST',
-      body: formData
-    });
-
-    return handleJsonResponse(response, `Encapsulation failed: ${response.statusText}`);
+  /**
+   * Start encapsulation pipeline against a specific backend URL
+   */
+  async encapsulateWithBaseUrl(baseUrl, targetFiles, carrierImage, options = {}) {
+    return encapsulateWithBaseUrl(baseUrl, targetFiles, carrierImage, options);
   },
 
   /**

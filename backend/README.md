@@ -56,6 +56,42 @@ exec(open("engine.py").read())
 - `POST /api/bridge/pipeline` - Run pipeline steps via the AI bridge
 - `GET /api/health/ai` - AI provider health (Ollama)
 
+## Offline Mode Operation
+
+The backend exposes local, file-based endpoints that mirror the Forge pipeline for offline execution.
+These are designed to be called from the Offline Tool Panel and accept `multipart/form-data` uploads.
+
+**Offline endpoints**
+
+- `POST /prepare` - Data preparation and validation
+- `POST /compress` - Zstandard compression
+- `POST /map` - Geometric mapping & scrambling
+- `POST /embed` - Steganographic embedding
+- `POST /seal` - Cryptographic seal (AES-GCM)
+- `POST /unlock` - Cryptographic unlock
+- `POST /unmask` - Alpha mask separation
+- `POST /extract` - Stego extraction
+- `POST /unshuffle` - Geometric unshuffle
+- `POST /decompress` - Zstandard decompression
+- `POST /verify` - Payload verification/restoration
+
+**Local dependencies**
+
+Offline execution uses the local pipeline modules in `backend/` and depends on:
+
+- `Pillow` for image handling
+- `zstandard` for compression
+- `pycryptodome` for cryptographic seal/unlock
+- `stegoimagex` for embed/extract (optional but required for stego steps)
+- `passagemath_polyhedra` for geometric mapping/unshuffle
+- `opencv-python` for verification/inpaint (optional, required for `/verify`)
+
+Install all backend dependencies with:
+
+```bash
+pip install -r requirements.txt
+```
+
 ### AI Bridge: `/api/bridge/pipeline`
 
 **Request schema**

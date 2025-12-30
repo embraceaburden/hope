@@ -17,11 +17,24 @@ import OfflineToolPanel from '../components/forge/OfflineToolPanel';
 import FileChunker from '../components/forge/FileChunker';
 import EnhancedJobCreator from '../components/forge/EnhancedJobCreator';
 import FlowerButton from '../components/forge/FlowerButton';
+import { forgeApi } from '../components/forge/forgeApi';
+import {
+  enqueueEncapsulationJob,
+  getQueuedEncapsulationCount,
+  getQueuedEncapsulationJobs,
+  rebuildFile,
+  removeQueuedEncapsulationJob
+} from '../lib/offlineQueue';
+import { toast } from 'sonner';
 
 export default function Dashboard() {
   const [selectedJob, setSelectedJob] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
   const [systemMode, setSystemMode] = useState('online');
+  const [autoOffline, setAutoOffline] = useState(false);
+  const [backendReachable, setBackendReachable] = useState(true);
+  const [offlineQueueCount, setOfflineQueueCount] = useState(0);
+  const [isSyncingQueue, setIsSyncingQueue] = useState(false);
   const queryClient = useQueryClient();
 
   const [config] = useState(() => ({
@@ -32,7 +45,61 @@ export default function Dashboard() {
   }));
 
   const toggleMode = () => {
+    setAutoOffline(false);
     setSystemMode((mode) => (mode === 'online' ? 'offline' : 'online'));
+  };
+
+  const refreshOfflineQueueCount = async () => {
+    try {
+      const count = await getQueuedEncapsulationCount();
+      setOfflineQueueCount(count);
+    } catch (error) {
+      console.warn('Failed to read offline queue count:', error);
+    }
+  };
+
+  const enqueueOfflineJob = async ({ targetFiles, carrierImage, options }) => {
+    const record = await enqueueEncapsulationJob({ targetFiles, carrierImage, options });
+    await refreshOfflineQueueCount();
+    return record;
+  };
+
+  const syncOfflineQueue = async () => {
+    if (isSyncingQueue) return;
+    setIsSyncingQueue(true);
+    try {
+      const queuedJobs = await getQueuedEncapsulationJobs();
+      if (!queuedJobs.length) {
+        return;
+      }
+      let syncedCount = 0;
+      for (const job of queuedJobs) {
+        try {
+          const targetFiles = job.targetFiles.map(rebuildFile);
+          const carrierImage = job.carrierImage ? rebuildFile(job.carrierImage) : null;
+          if (!carrierImage) {
+            throw new Error('Queued job missing carrier image.');
+          }
+          await forgeApi.encapsulateWithBaseUrl(
+            config.backend_url,
+            targetFiles,
+            carrierImage,
+            job.options || {}
+          );
+          await removeQueuedEncapsulationJob(job.id);
+          syncedCount += 1;
+        } catch (error) {
+          console.warn('Failed to sync offline job:', error);
+        }
+      }
+      if (syncedCount > 0) {
+        queryClient.invalidateQueries({ queryKey: ['processingJobs'] });
+        toast.success(`Synced ${syncedCount} offline job${syncedCount === 1 ? '' : 's'}.`);
+      }
+    } finally {
+      setIsSyncingQueue(false);
+      await refreshOfflineQueueCount();
+    }
   };
 
   const fetchJobs = async () => {
@@ -57,7 +124,7 @@ export default function Dashboard() {
     queryKey: ['processingJobs', config.backend_url],
     queryFn: fetchJobs,
     initialData: [],
-    refetchInterval: systemMode === 'online' ? 2000 : false
+    refetchInterval: systemMode === 'online' && backendReachable ? 2000 : false
   });
 
   // Calculate statistics
@@ -95,6 +162,81 @@ export default function Dashboard() {
       setSelectedJob(activeJob);
     }
   }, [jobs, selectedJob]);
+
+  useEffect(() => {
+    refreshOfflineQueueCount();
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+    const checkConnectivity = async () => {
+      if (!navigator.onLine) {
+        if (!isMounted) return;
+        setBackendReachable(false);
+        if (systemMode === 'online') {
+          setSystemMode('offline');
+          setAutoOffline(true);
+        }
+        return;
+      }
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3000);
+      try {
+        const response = await fetch(`${config.backend_url}/`, { signal: controller.signal });
+        clearTimeout(timeoutId);
+        if (!response.ok) {
+          throw new Error(`Health check failed: ${response.status}`);
+        }
+        if (!isMounted) return;
+        setBackendReachable(true);
+        if (autoOffline) {
+          setSystemMode('online');
+          setAutoOffline(false);
+        }
+      } catch (error) {
+        clearTimeout(timeoutId);
+        if (!isMounted) return;
+        setBackendReachable(false);
+        if (systemMode === 'online') {
+          setSystemMode('offline');
+          setAutoOffline(true);
+        }
+      }
+    };
+
+    const runCheck = () => {
+      checkConnectivity().catch((error) => console.warn('Connectivity check failed:', error));
+    };
+
+    runCheck();
+    const intervalId = setInterval(runCheck, 5000);
+
+    const handleOnline = () => runCheck();
+    const handleOffline = () => {
+      if (!isMounted) return;
+      setBackendReachable(false);
+      if (systemMode === 'online') {
+        setSystemMode('offline');
+        setAutoOffline(true);
+      }
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      isMounted = false;
+      clearInterval(intervalId);
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [autoOffline, config.backend_url, systemMode]);
+
+  useEffect(() => {
+    if (systemMode === 'online' && backendReachable) {
+      syncOfflineQueue();
+    }
+  }, [systemMode, backendReachable]);
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -178,6 +320,11 @@ export default function Dashboard() {
                   </>
                 )}
               </Button>
+              {offlineQueueCount > 0 && (
+                <Badge className="bg-orange-100 text-orange-800">
+                  {offlineQueueCount} queued
+                </Badge>
+              )}
 
               <Badge
                 className="text-white px-4 py-2"
@@ -237,6 +384,8 @@ export default function Dashboard() {
             {/* Job Creator */}
             <EnhancedJobCreator 
               backendUrl={config.backend_url}
+              isOfflineMode={systemMode === 'offline'}
+              onQueueJob={enqueueOfflineJob}
               onJobCreated={(job) => {
                 queryClient.invalidateQueries({ queryKey: ['processingJobs'] });
                 setSelectedJob(job);

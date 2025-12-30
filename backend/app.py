@@ -26,8 +26,19 @@ from werkzeug.exceptions import HTTPException, RequestEntityTooLarge
 from werkzeug.utils import secure_filename
 
 from ai_bridge import BridgeValidationError, run_pipeline
+from compression import hyper_compress
+from decompress import decompress_blob
+from extract import extract_binary_data
 from job_updates import emit_job_update, set_emitter
+from map_and_scramble import geometric_map_and_scramble
+from preparation import validate_and_clean
+from security import cryptographic_seal
 from storage import RedisJobStore, SqliteJobStore
+from stego_engine import embed_steganographic
+from unmask import unmask_alpha_layers
+from unlock import unlock_and_decrypt
+from unshuffle import reverse_geometric_scramble
+from verify import verify_and_restore
 
 BASE_DIR = Path(__file__).resolve().parent
 UPLOAD_DIR = BASE_DIR / "uploads"
@@ -120,7 +131,15 @@ CORS(
                 "http://127.0.0.1:5173",
                 "http://127.0.0.1:3000",
             ]
-        }
+        },
+        r"/(prepare|compress|map|embed|seal|unlock|unmask|extract|unshuffle|decompress|verify)": {
+            "origins": [
+                "http://localhost:5173",
+                "http://localhost:3000",
+                "http://127.0.0.1:5173",
+                "http://127.0.0.1:3000",
+            ]
+        },
     },
 )
 
@@ -229,6 +248,38 @@ def _safe_b64decode(value: str | None) -> bytes | None:
         return None
     return base64.b64decode(value.encode("utf-8"))
 
+def _b64encode_bytes(payload: bytes | None) -> str | None:
+    if payload is None:
+        return None
+    return base64.b64encode(payload).decode("utf-8")
+
+
+def _read_upload_bytes(field: str = "file") -> tuple[bytes, str]:
+    file_storage = request.files.get(field)
+    if not file_storage:
+        raise ValueError(f"Missing file upload: {field}")
+    return file_storage.read(), file_storage.filename or field
+
+
+def _form_int(key: str, default: int) -> int:
+    raw = request.form.get(key)
+    if raw is None or raw == "":
+        return default
+    return int(raw)
+
+
+def _form_bool(key: str, default: bool) -> bool:
+    raw = request.form.get(key)
+    if raw is None:
+        return default
+    return raw.lower() in {"1", "true", "yes", "on"}
+
+
+def _offline_error(exc: Exception, fallback: str) -> tuple[Any, int]:
+    app.logger.exception(fallback)
+    if isinstance(exc, (ValueError, ImportError)):
+        return _error_response(str(exc), 400)
+    return _error_response(fallback, 500)
 
 def _hash_file(path: Path, chunk_size: int = 1024 * 1024) -> str:
     hasher = hashlib.sha256()
@@ -610,6 +661,231 @@ def ai_health() -> Any:
 
     overall_status = "ok" if ollama_health["status"] == "healthy" else "degraded"
     return jsonify({"status": overall_status, "providers": {"ollama": ollama_health}})
+
+@app.route("/prepare", methods=["POST"])
+def offline_prepare() -> Any:
+    try:
+        file_bytes, filename = _read_upload_bytes()
+        package = validate_and_clean({"file": file_bytes, "name": filename})
+        return jsonify(
+            {
+                "name": package.name,
+                "type": package.type,
+                "metadata": package.metadata,
+                "raw_bytes_b64": _b64encode_bytes(package.raw_bytes),
+            }
+        )
+    except Exception as exc:
+        return _offline_error(exc, "Offline preparation failed")
+
+
+@app.route("/compress", methods=["POST"])
+def offline_compress() -> Any:
+    try:
+        file_bytes, _ = _read_upload_bytes()
+        level = _form_int("compression_level", 22)
+        result = hyper_compress(file_bytes, level=level)
+        return jsonify(
+            {
+                "compressed_blob_b64": _b64encode_bytes(result.get("compressed_blob")),
+                "compression_ratio": result.get("compression_ratio"),
+                "frame_parameters": result.get("frame_parameters"),
+                "frame_content_size": result.get("frame_content_size"),
+                "zstd_level": result.get("zstd_level"),
+            }
+        )
+    except Exception as exc:
+        return _offline_error(exc, "Offline compression failed")
+
+
+@app.route("/map", methods=["POST"])
+def offline_map() -> Any:
+    try:
+        file_bytes, _ = _read_upload_bytes()
+        polytope_type = request.form.get("polytope_type", "cube")
+        backend = request.form.get("poly_backend", "latte")
+        result = geometric_map_and_scramble(file_bytes, polytope_type=polytope_type, backend=backend)
+        return jsonify(
+            {
+                "scrambled_blob_b64": _b64encode_bytes(result.get("scrambled_blob")),
+                "permutation_key": result.get("permutation_key"),
+                "polytope_type": result.get("polytope_type"),
+                "backend": result.get("backend"),
+                "block_size": result.get("block_size"),
+                "f_vector": result.get("f_vector"),
+            }
+        )
+    except Exception as exc:
+        return _offline_error(exc, "Offline mapping failed")
+
+
+@app.route("/embed", methods=["POST"])
+def offline_embed() -> Any:
+    try:
+        scrambled_blob, _ = _read_upload_bytes()
+        carrier_image = request.files.get("carrier")
+        carrier_bytes = carrier_image.read() if carrier_image else scrambled_blob
+        password = request.form.get("password", "supersecret")
+        layers = _form_int("layers", 2)
+        dynamic = _form_bool("dynamic", True)
+        adaptive = _form_bool("adaptive", True)
+        compress = _form_bool("compress", True)
+        result = embed_steganographic(
+            scrambled_blob,
+            carrier_bytes,
+            password=password,
+            layers=layers,
+            dynamic=dynamic,
+            compress=compress,
+            adaptive=adaptive,
+        )
+        return jsonify(
+            {
+                "embedded_image_b64": _b64encode_bytes(result.get("embedded_image")),
+                "embedding_metadata": result.get("embedding_metadata"),
+            }
+        )
+    except Exception as exc:
+        return _offline_error(exc, "Offline steganographic embedding failed")
+
+
+@app.route("/seal", methods=["POST"])
+def offline_seal() -> Any:
+    try:
+        embedded_image, _ = _read_upload_bytes()
+        password = request.form.get("password")
+        kdf_iterations = _form_int("kdf_iterations", 100_000)
+        result = cryptographic_seal(
+            embedded_image,
+            password=password,
+            kdf_iterations=kdf_iterations,
+        )
+        return jsonify(
+            {
+                "sealed_image_b64": _b64encode_bytes(result.get("sealed_image")),
+                "crypto_metadata": result.get("crypto_metadata"),
+            }
+        )
+    except Exception as exc:
+        return _offline_error(exc, "Offline cryptographic seal failed")
+
+
+@app.route("/unlock", methods=["POST"])
+def offline_unlock() -> Any:
+    try:
+        sealed_image, _ = _read_upload_bytes()
+        password = request.form.get("password")
+        nonce = request.form.get("nonce")
+        tag = request.form.get("tag")
+        salt = request.form.get("salt")
+        kdf_iterations = _form_int("kdf_iterations", 100_000)
+        result = unlock_and_decrypt(
+            sealed_image,
+            password=password,
+            nonce=nonce,
+            tag=tag,
+            salt=salt,
+            kdf_iterations=kdf_iterations,
+        )
+        return jsonify({"decrypted_image_b64": _b64encode_bytes(result.get("decrypted_image"))})
+    except Exception as exc:
+        return _offline_error(exc, "Offline unlock failed")
+
+
+@app.route("/unmask", methods=["POST"])
+def offline_unmask() -> Any:
+    try:
+        decrypted_image, _ = _read_upload_bytes()
+        result = unmask_alpha_layers(decrypted_image)
+        return jsonify(
+            {
+                "image_a_b64": _b64encode_bytes(result.get("image_a")),
+                "image_b_b64": _b64encode_bytes(result.get("image_b")),
+                "metadata": result.get("metadata"),
+            }
+        )
+    except Exception as exc:
+        return _offline_error(exc, "Offline unmask failed")
+
+
+@app.route("/extract", methods=["POST"])
+def offline_extract() -> Any:
+    try:
+        embedded_image, _ = _read_upload_bytes()
+        password = request.form.get("password", "supersecret")
+        layers = _form_int("layers", 2)
+        dynamic = _form_bool("dynamic", True)
+        adaptive = _form_bool("adaptive", True)
+        compress = _form_bool("compress", True)
+        result = extract_binary_data(
+            embedded_image,
+            password=password,
+            layers=layers,
+            dynamic=dynamic,
+            compress=compress,
+            adaptive=adaptive,
+        )
+        return jsonify(
+            {
+                "binary_blob_b64": _b64encode_bytes(result.get("binary_blob")),
+                "extraction_metadata": result.get("extraction_metadata"),
+            }
+        )
+    except Exception as exc:
+        return _offline_error(exc, "Offline extraction failed")
+
+
+@app.route("/unshuffle", methods=["POST"])
+def offline_unshuffle() -> Any:
+    try:
+        image_b, _ = _read_upload_bytes()
+        permutation_key = request.form.get("permutation_key")
+        if not permutation_key:
+            raise ValueError("Missing permutation key")
+        polytope_type = request.form.get("polytope_type", "cube")
+        backend = request.form.get("poly_backend", "latte")
+        block_size_raw = request.form.get("block_size")
+        block_size = int(block_size_raw) if block_size_raw else None
+        result = reverse_geometric_scramble(
+            image_b,
+            permutation_key=permutation_key,
+            polytope_type=polytope_type,
+            backend=backend,
+            block_size=block_size,
+        )
+        return jsonify(
+            {
+                "sequential_data_b64": _b64encode_bytes(result.get("sequential_data")),
+                "metadata": result.get("metadata"),
+            }
+        )
+    except Exception as exc:
+        return _offline_error(exc, "Offline unshuffle failed")
+
+
+@app.route("/decompress", methods=["POST"])
+def offline_decompress() -> Any:
+    try:
+        binary_blob, _ = _read_upload_bytes()
+        result = decompress_blob(binary_blob)
+        return jsonify(
+            {
+                "decompressed_data_b64": _b64encode_bytes(result.get("decompressed_data")),
+                "frame_content_size": result.get("frame_content_size"),
+            }
+        )
+    except Exception as exc:
+        return _offline_error(exc, "Offline decompression failed")
+
+
+@app.route("/verify", methods=["POST"])
+def offline_verify() -> Any:
+    try:
+        payload_bytes, _ = _read_upload_bytes()
+        result = verify_and_restore(payload_bytes)
+        return jsonify(result)
+    except Exception as exc:
+        return _offline_error(exc, "Offline verification failed")
 
 
 @socketio.on('connect')
