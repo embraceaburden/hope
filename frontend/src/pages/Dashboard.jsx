@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -25,13 +24,6 @@ export default function Dashboard() {
   const [systemMode, setSystemMode] = useState('online');
   const queryClient = useQueryClient();
 
-  // Fetch system config
-  const { data: configs } = useQuery({
-    queryKey: ['systemConfig'],
-    queryFn: () => base44.entities.SystemConfig.list(),
-    initialData: []
-  });
-
   const config = configs[0] || {
     mode: 'online',
     backend_url: 'http://localhost:5000',
@@ -41,7 +33,7 @@ export default function Dashboard() {
   // Fetch processing jobs
   const { data: jobs, isLoading: jobsLoading } = useQuery({
     queryKey: ['processingJobs'],
-    queryFn: () => base44.entities.ProcessingJob.list('-created_date', 50),
+    queryFn: () => backend.entities.ProcessingJob.list('-created_date', 50),
     initialData: [],
     refetchInterval: systemMode === 'online' ? 2000 : false
   });
@@ -81,18 +73,6 @@ export default function Dashboard() {
       setSelectedJob(activeJob);
     }
   }, [jobs, selectedJob]);
-
-  // Toggle system mode
-  const toggleMode = async () => {
-    const newMode = systemMode === 'online' ? 'offline' : 'online';
-    setSystemMode(newMode);
-    
-    if (configs[0]) {
-      await base44.entities.SystemConfig.update(configs[0].id, {
-        mode: newMode
-      });
-    }
-  };
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -148,7 +128,7 @@ export default function Dashboard() {
               <Button
                 variant="outline"
                 onClick={toggleMode}
-                style={{ borderColor: '#bc804d' }}
+                style={{ borderColor: 2}}
               >
                 {systemMode === 'online' ? (
                   <>
@@ -163,7 +143,7 @@ export default function Dashboard() {
                 )}
               </Button>
 
-              <Badge className="text-white px-4 py-2" style={{ background: 'linear-gradient(135deg, #bc804d 0%, #9d442a 100%)' }}>
+              <Badge className="text-white px-4 py-2" style={{ background: 'linear-gradient(135deg, #bc804d 30%, #9d442a 100%)' }}>
                 <Activity className="h-3 w-3 mr-2" />
                 {stats.active} Active
               </Badge>
@@ -174,7 +154,7 @@ export default function Dashboard() {
 
       <main className="max-w-7xl mx-auto px-6 py-8">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="mb-6" style={{ background: 'rgba(255, 255, 255, 0.5)', border: '1px solid rgba(188, 128, 77, 0.2)' }}>
+          <TabsList className="mb-6" style={{ background: 'rgba(255, 255, 255, 0.5)', border: '2px solid rgba(188, 128, 77, 0.9)' }}>
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="pipeline">Pipeline Monitor</TabsTrigger>
             <TabsTrigger value="offline">Offline Tools</TabsTrigger>
@@ -190,7 +170,7 @@ export default function Dashboard() {
                 value={stats.total}
                 icon={Package}
                 trend="up"
-                trendValue="+12% this week"
+                trendValue=""
               />
               <StatsCard
                 title="Completed"
@@ -229,8 +209,8 @@ export default function Dashboard() {
               </div>
 
               {/* Recent Jobs */}
-              <Card style={{ background: 'rgba(255, 255, 255, 0.7)', backdropFilter: 'blur(12px)', border: '1px solid rgba(188, 128, 77, 0.2)', boxShadow: '0 8px 32px rgba(12, 65, 60, 0.08)', borderRadius: '12px' }}>
-                <CardHeader className="border-b" style={{ borderColor: 'rgba(188, 128, 77, 0.2)' }}>
+              <Card style={{ background: 'rgba(255, 255, 255, 0.7)', backdropFilter: 'blur(12px)', border: '2px solid rgba(188, 128, 77, 0.9)', boxShadow: '0 8px 32px rgba(12, 65, 60, 0.2)', borderRadius: '12px' }}>
+                <CardHeader className="border-b" style={{ borderColor: 'rgba(188, 128, 77, 0.9)' }}>
                   <CardTitle style={{ color: '#0c413c' }}>
                     Recent Jobs
                   </CardTitle>

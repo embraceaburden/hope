@@ -3,7 +3,6 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { Button } from '@/components/ui/button';
-import { base44 } from '@/api/base44Client';
 import { 
   Zap, Moon, Sun, LogOut, User, 
   LayoutDashboard, Settings, FileText, Menu, X
@@ -15,18 +14,9 @@ export default function Layout({ children, currentPageName }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
-    loadUser();
     loadTheme();
   }, []);
 
-  const loadUser = async () => {
-    try {
-      const userData = await base44.auth.me();
-      setUser(userData);
-    } catch (error) {
-      console.log('User not authenticated');
-    }
-  };
 
   const loadTheme = () => {
     const savedTheme = localStorage.getItem('forge-theme') || 'light';
@@ -41,9 +31,6 @@ export default function Layout({ children, currentPageName }) {
     document.documentElement.classList.toggle('dark', newTheme === 'dark');
   };
 
-  const handleLogout = () => {
-    base44.auth.logout();
-  };
 
   const navItems = [
     { name: 'Dashboard', page: 'Dashboard', icon: LayoutDashboard },

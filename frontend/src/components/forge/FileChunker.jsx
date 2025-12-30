@@ -3,7 +3,6 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Upload, CheckCircle2, Loader2, AlertCircle } from 'lucide-react';
-import { base44 } from '@/api/base44Client';
 
 const CHUNK_SIZE = 10 * 1024 * 1024; // 10MB chunks
 
@@ -49,17 +48,6 @@ export default function FileChunker({ onUploadComplete, acceptedTypes = '*' }) {
         // Create a new File object for this chunk
         const chunkFile = new File([chunk], `${file.name}.part${i}`, {
           type: file.type
-        });
-
-        // Upload chunk
-        const { file_url } = await base44.integrations.Core.UploadFile({ 
-          file: chunkFile 
-        });
-
-        chunks.push({
-          index: i,
-          url: file_url,
-          size: chunk.size
         });
 
         // Update progress

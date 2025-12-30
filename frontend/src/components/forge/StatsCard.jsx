@@ -30,7 +30,7 @@ export default function StatsCard({ title, value, icon: Icon, trend, trendValue,
             )}
           </div>
           <div className="p-3 rounded-xl heritage-gradient-light shadow-lg">
-            <Icon className="h-6 w-6 text-white" />
+            <Icon className="h-6 w-6 text-green" />
           </div>
         </div>
       </CardContent>
