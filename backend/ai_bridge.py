@@ -13,10 +13,11 @@ import json
 from pathlib import Path
 from typing import Any
 
-from preparation import validate_and_clean
-from conversion import serialize_and_patternize
-from compression import hyper_compress
-from neuro_shatter import run_neuro_shatter, should_use_neuro_shatter
+from neuro_shatter import (
+    hyper_compress,
+    run_ingestion_convert,
+    validate_and_clean,
+)
 from map_and_scramble import geometric_map_and_scramble
 from stego_engine import embed_steganographic
 from security import cryptographic_seal
@@ -133,11 +134,7 @@ def run_pipeline(request: dict[str, Any]) -> dict[str, Any]:
             context["package"] = package
         elif step == "convert":
             package = context["package"]
-            if should_use_neuro_shatter(package, options):
-                context.update(run_neuro_shatter(package))
-                context["convert_skipped"] = True
-            else:
-                context.update(serialize_and_patternize(package))
+            context.update(run_ingestion_convert(package, options))
         elif step == "compress":
             if context.get("compressed_blob") is not None:
                 continue

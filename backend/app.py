@@ -27,13 +27,11 @@ from werkzeug.utils import secure_filename
 
 from ai_bridge import BridgeValidationError, run_pipeline
 from compression import hyper_compress
-from conversion import serialize_and_patternize
 from decompress import decompress_blob
 from extract import extract_binary_data
 from job_updates import emit_job_update, set_emitter
 from map_and_scramble import geometric_map_and_scramble
-from neuro_shatter import run_neuro_shatter, should_use_neuro_shatter
-from preparation import validate_and_clean
+from neuro_shatter import run_ingestion_convert, validate_and_clean
 from security import cryptographic_seal
 from storage import RedisJobStore, SqliteJobStore
 from stego_engine import embed_steganographic
@@ -994,11 +992,7 @@ def _run_engine_pipeline(job_id: str, job: dict[str, Any], output_path: Path) ->
             context["package"] = package
         elif phase_id == "convert":
             package = context["package"]
-            if should_use_neuro_shatter(package, options):
-                context.update(run_neuro_shatter(package))
-                context["convert_skipped"] = True
-            else:
-                context.update(serialize_and_patternize(package))
+            context.update(run_ingestion_convert(package, options))
         elif phase_id == "compress":
             if context.get("compressed_blob") is not None:
                 mark_progress(phase_id)
