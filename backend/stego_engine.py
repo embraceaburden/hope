@@ -26,7 +26,6 @@ def embed_steganographic(
 	adaptive: bool = True,
 	logging_enabled: bool = False
 ) -> dict:
-	emit_job_update(job_id, job_data)
 	"""
 	Embeds the scrambled blob into the carrier image using stegoImageX's hide_text.
 	All embedding parameters are configurable. Returns embedded image bytes and full metadata.

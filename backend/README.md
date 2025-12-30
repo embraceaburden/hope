@@ -11,7 +11,7 @@ pip install -r requirements.txt
 
 2. **Run the server:**
 ```bash
-python app.example.py
+python app.py
 ```
 
 3. **Server runs on:**
@@ -22,7 +22,7 @@ python app.example.py
 
 ### Where to Add Your Snowflake Engine
 
-Look for comments marked `# YOUR ENGINE HERE` in `app.example.py`:
+Look for comments marked `# YOUR ENGINE HERE` in `app.py`:
 exec(open("engine.py").read())
 
 1. **Phase 1 (Triple-Smack):**
@@ -44,12 +44,16 @@ exec(open("engine.py").read())
 
 ### API Endpoints
 
+- `GET /api/options` - Fetch available phases and global options
+- `POST /api/uploads` - Upload a file for later use
 - `POST /api/encapsulate` - Start encapsulation job
+- `GET /api/jobs` - List recent jobs
 - `GET /api/job/<job_id>` - Get job status (polling)
 - `GET /api/download/<job_id>` - Download result
 - `POST /api/extract` - Extract from package
 - `GET /api/extract/status/<job_id>` - Extraction status
 - `GET /api/geometric/key/<job_id>` - Get geometric key
+- `POST /api/bridge/pipeline` - Run pipeline steps via the AI bridge
 
 ### WebSocket Events
 
@@ -135,7 +139,7 @@ extraction_files (
 ```
 uploads/          # Uploaded files (temporary)
 output/           # Generated steganographic packages
-app.example.py    # Main Flask server
+app.py            # Main Flask server
 requirements.txt  # Python dependencies
 ```
 
@@ -179,7 +183,7 @@ curl -X POST http://localhost:5000/api/encapsulate \
 
 Update your frontend `.env`:
 ```
-VITE_SNOWFLAKE_API_URL=http://localhost:5000
+VITE_FORGE_BACKEND_URL=http://localhost:5000
 ```
 
 The `snowflakeClient.js` will automatically connect to this URL.

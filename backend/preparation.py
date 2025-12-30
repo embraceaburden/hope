@@ -17,7 +17,6 @@ class DataPackage(BaseModel):
 
 
 def _normalize_image_to_png(raw: bytes, name: str) -> bytes:
-	emit_job_update(job_id, job_data)
 	"""
 	Converts any image bytes to PNG format using Pillow. Returns PNG bytes.
 	"""

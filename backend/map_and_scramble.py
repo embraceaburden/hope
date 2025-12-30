@@ -12,7 +12,6 @@ import io
 
 
 def geometric_map_and_scramble(compressed_blob: bytes, polytope_type: str = "cube", backend: str = "latte") -> dict:
-	emit_job_update(job_id, job_data)
 	"""
 	Maps and scrambles the compressed blob using PassageMath polyhedral helpers and geometric/topological scrambling.
 	Returns a dict with the scrambled blob, permutation key, and mapping parameters.

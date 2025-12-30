@@ -5,7 +5,6 @@ from typing import Any
 
 
 def decompress_blob(binary_blob: bytes) -> dict:
-	emit_job_update(job_id, job_data)
 	"""
 	Decompresses the binary blob using Zstandard.
 	Returns a dict with the decompressed data and diagnostics.

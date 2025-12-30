@@ -53,7 +53,6 @@ def serialize_and_patternize(package: DataPackage) -> dict:
 				metrics['compression'] = metrics['original_size'] / max(1, metrics['compressed_size'])
 			except Exception:
 				metrics['compression'] = 1.0
-				emit_job_update(job_id, job_data)
 		return {
 			"patternized_blob": compressed,
 			"name": package.name,

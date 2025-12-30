@@ -14,7 +14,6 @@ def unlock_and_decrypt(
 	salt: str = None,
 	kdf_iterations: int = 100_000
 ) -> dict:
-	emit_job_update(job_id, job_data)
 	"""
 	Unlocks and decrypts the sealed image using PyCryptodome (AES-GCM).
 	Supports password-based key derivation (PBKDF2) or direct key.
