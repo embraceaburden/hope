@@ -100,12 +100,25 @@ def validate_and_clean(data: dict) -> DataPackage:
             if not file_path.exists():
                 raise ValueError(f"File path '{file_input}' does not exist.")
             file_bytes = file_path.read_bytes()
-            name = name or file_path.name
-        elif isinstance(file_input, bytes):
-            file_bytes = file_input
+            if not name or name == "unnamed":
+                name = file_path.name
+        elif isinstance(file_input, (bytes, bytearray, memoryview)):
+            file_bytes = bytes(file_input)
+        elif hasattr(file_input, "read"):
+            try:
+                file_bytes = file_input.read()
+            except Exception as exc:
+                raise ValueError("Failed to read bytes from file-like input.") from exc
+            if isinstance(file_bytes, str):
+                file_bytes = file_bytes.encode()
+        elif hasattr(file_input, "tobytes"):
+            try:
+                file_bytes = file_input.tobytes()
+            except Exception as exc:
+                raise ValueError("Failed to convert input to bytes.") from exc
         else:
             raise ValueError(
-                "Input must include 'file' or 'raw_bytes' as bytes, str, Path, or NumPy array."
+                "Input must include 'file' or 'raw_bytes' as bytes, file-like, str, Path, or NumPy array."
             )
 
         is_image = False
