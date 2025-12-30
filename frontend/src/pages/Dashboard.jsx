@@ -105,14 +105,28 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen" style={{ background: 'linear-gradient(135deg, #f6eee6 25%, #d7c2b0 50%, #f6eee6 100%)' }}>
+    <div
+      className="min-h-screen"
+      style={{
+        background: 'linear-gradient(135deg, var(--color-satin) 25%, var(--color-muted) 50%, var(--color-satin) 100%)'
+      }}
+    >
       {/* Header */}
-      <header className="border-b backdrop-blur-lg sticky top-0 z-40" style={{ borderColor: 'rgba(188, 128, 77,)', background: 'rgba(255, 255, 255, 0.5)' }}>
+      <header
+        className="border-b backdrop-blur-lg sticky top-0 z-40"
+        style={{
+          borderColor: 'rgba(188, 128, 77, 0.4)',
+          background: 'rgba(236, 235, 234, 0.7)'
+        }}
+      >
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold flex items-center gap-3" style={{ color: '#0c413c' }}>
-                <div className="h-10 w-10 rounded-lg flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #bc804d 50%, #9d442a 100%)' }}>
+              <h1 className="text-3xl font-bold flex items-center gap-3" style={{ color: 'var(--color-pine-teal)' }}>
+                <div
+                  className="h-10 w-10 rounded-lg flex items-center justify-center"
+                  style={{ background: 'linear-gradient(135deg, var(--color-gold) 50%, var(--color-copper) 100%)' }}
+                >
                   <Zap className="h-6 w-6 text-white" />
                 </div>
                 The Forge
@@ -149,7 +163,7 @@ export default function Dashboard() {
               <Button
                 variant="outline"
                 onClick={toggleMode}
-                style={{ borderColor: 2}}
+                style={{ borderColor: 'var(--color-gold)', color: 'var(--color-pine-teal)' }}
               >
                 {systemMode === 'online' ? (
                   <>
@@ -164,7 +178,10 @@ export default function Dashboard() {
                 )}
               </Button>
 
-              <Badge className="text-white px-4 py-2" style={{ background: 'linear-gradient(135deg, #bc804d 30%, #9d442a 100%)' }}>
+              <Badge
+                className="text-white px-4 py-2"
+                style={{ background: 'linear-gradient(135deg, var(--color-gold) 30%, var(--color-copper) 100%)' }}
+              >
                 <Activity className="h-3 w-3 mr-2" />
                 {stats.active} Active
               </Badge>
@@ -175,7 +192,13 @@ export default function Dashboard() {
 
       <main className="max-w-7xl mx-auto px-6 py-8">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="mb-6" style={{ background: 'rgba(255, 255, 255, 0.5)', border: '2px solid rgba(188, 128, 77, 0.9)' }}>
+          <TabsList
+            className="mb-6"
+            style={{
+              background: 'rgba(236, 235, 234, 0.7)',
+              border: '2px solid rgba(188, 128, 77, 0.5)'
+            }}
+          >
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="pipeline">Pipeline Monitor</TabsTrigger>
             <TabsTrigger value="offline">Offline Tools</TabsTrigger>
@@ -230,9 +253,9 @@ export default function Dashboard() {
               </div>
 
               {/* Recent Jobs */}
-              <Card style={{ background: 'rgba(255, 255, 255, 0.7)', backdropFilter: 'blur(12px)', border: '2px solid rgba(188, 128, 77, 0.9)', boxShadow: '0 8px 32px rgba(12, 65, 60, 0.2)', borderRadius: '12px' }}>
-                <CardHeader className="border-b" style={{ borderColor: 'rgba(188, 128, 77, 0.9)' }}>
-                  <CardTitle style={{ color: '#0c413c' }}>
+              <Card style={{ background: 'rgba(255, 255, 255, 0.75)', backdropFilter: 'blur(12px)', border: '2px solid rgba(188, 128, 77, 0.4)', boxShadow: '0 8px 32px rgba(12, 65, 76, 0.2)', borderRadius: '12px' }}>
+                <CardHeader className="border-b" style={{ borderColor: 'rgba(188, 128, 77, 0.4)' }}>
+                  <CardTitle style={{ color: 'var(--color-pine-teal)' }}>
                     Recent Jobs
                   </CardTitle>
                 </CardHeader>
@@ -243,12 +266,12 @@ export default function Dashboard() {
                         key={job.id}
                         onClick={() => setSelectedJob(job)}
                         className="w-full p-4 text-left transition-colors"
-                        style={selectedJob?.id === job.id ? { background: '#f6eee6' } : {}}
-                        onMouseEnter={(e) => e.currentTarget.style.background = '#f6eee6'}
+                        style={selectedJob?.id === job.id ? { background: 'var(--color-satin)' } : {}}
+                        onMouseEnter={(e) => e.currentTarget.style.background = 'var(--color-satin)'}
                         onMouseLeave={(e) => { if (selectedJob?.id !== job.id) e.currentTarget.style.background = 'transparent' }}
                       >
                         <div className="flex items-center justify-between mb-2">
-                          <span className="font-medium text-sm" style={{ color: '#0c413c' }}>
+                          <span className="font-medium text-sm" style={{ color: 'var(--color-pine-teal)' }}>
                             {job.job_id || job.id.substring(0, 8)}
                           </span>
                           <Badge className={getStatusColor(job.status)}>
@@ -263,10 +286,10 @@ export default function Dashboard() {
                           <span className="capitalize">{job.job_type}</span>
                         </div>
                         {job.progress > 0 && job.status !== 'completed' && (
-                          <div className="mt-2 h-1 rounded-full overflow-hidden" style={{ background: '#e5e7eb' }}>
+                          <div className="mt-2 h-1 rounded-full overflow-hidden" style={{ background: 'var(--color-mist)' }}>
                             <div 
                               className="h-full"
-                              style={{ width: `${job.progress}%`, background: 'linear-gradient(135deg, #bc804d 0%, #9d442a 100%)' }}
+                              style={{ width: `${job.progress}%`, background: 'linear-gradient(135deg, var(--color-gold) 0%, var(--color-copper) 100%)' }}
                             />
                           </div>
                         )}
@@ -288,9 +311,9 @@ export default function Dashboard() {
                 />
               </div>
               <div>
-               <Card style={{ background: 'rgba(255, 255, 255, 0.7)', backdropFilter: 'blur(12px)', border: '1px solid rgba(188, 128, 77, 0.2)', boxShadow: '0 8px 32px rgba(12, 65, 60, 0.08)', borderRadius: '12px' }}>
+               <Card style={{ background: 'rgba(255, 255, 255, 0.75)', backdropFilter: 'blur(12px)', border: '1px solid rgba(188, 128, 77, 0.25)', boxShadow: '0 8px 32px rgba(12, 65, 76, 0.08)', borderRadius: '12px' }}>
                  <CardHeader>
-                   <CardTitle style={{ color: '#0c413c' }}>
+                   <CardTitle style={{ color: 'var(--color-pine-teal)' }}>
                      Job Details
                    </CardTitle>
                  </CardHeader>
@@ -312,12 +335,12 @@ export default function Dashboard() {
                           </Badge>
                         </div>
                         {selectedJob.configuration && (
-                          <div>
-                            <label className="text-xs" style={{ color: '#6b7280' }}>Configuration</label>
-                            <pre className="text-xs mt-1 p-2 rounded" style={{ background: '#f6eee6' }}>
+                        <div>
+                          <label className="text-xs" style={{ color: '#6b7280' }}>Configuration</label>
+                          <pre className="text-xs mt-1 p-2 rounded" style={{ background: 'var(--color-satin)' }}>
                               {JSON.stringify(selectedJob.configuration, null, 2)}
-                            </pre>
-                          </div>
+                          </pre>
+                        </div>
                         )}
                       </>
                     ) : (
@@ -350,9 +373,9 @@ export default function Dashboard() {
 
           {/* Job History Tab */}
           <TabsContent value="history">
-            <Card style={{ background: 'rgba(255, 255, 255, 0.7)', backdropFilter: 'blur(12px)', border: '1px solid rgba(188, 128, 77, 0.2)', boxShadow: '0 8px 32px rgba(12, 65, 60, 0.08)', borderRadius: '12px' }}>
+            <Card style={{ background: 'rgba(255, 255, 255, 0.75)', backdropFilter: 'blur(12px)', border: '1px solid rgba(188, 128, 77, 0.25)', boxShadow: '0 8px 32px rgba(12, 65, 76, 0.08)', borderRadius: '12px' }}>
               <CardHeader>
-                <CardTitle style={{ color: '#0c413c' }}>
+                <CardTitle style={{ color: 'var(--color-pine-teal)' }}>
                   Complete Job History
                 </CardTitle>
               </CardHeader>
@@ -363,7 +386,7 @@ export default function Dashboard() {
                       key={job.id}
                       className="p-4 rounded-lg border transition-colors cursor-pointer"
                       style={{ borderColor: 'rgba(188, 128, 77, 0.2)' }}
-                      onMouseEnter={(e) => e.currentTarget.style.background = '#f6eee6'}
+                      onMouseEnter={(e) => e.currentTarget.style.background = 'var(--color-satin)'}
                       onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                       onClick={() => {
                         setSelectedJob(job);
@@ -372,7 +395,7 @@ export default function Dashboard() {
                     >
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="font-medium" style={{ color: '#0c413c' }}>
+                          <p className="font-medium" style={{ color: 'var(--color-pine-teal)' }}>
                             {job.job_id || job.id}
                           </p>
                           <p className="text-xs mt-1" style={{ color: '#6b7280' }}>

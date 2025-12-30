@@ -15,6 +15,7 @@ export default function AIOrchestrator({ onJobCreate, onConfigUpdate }) {
   const [inputValue, setInputValue] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState([]);
+  const baseClient = typeof window !== 'undefined' ? window.base44 : null;
   
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -28,8 +29,17 @@ export default function AIOrchestrator({ onJobCreate, onConfigUpdate }) {
   }, []);
 
   const initConversation = async () => {
+    if (!baseClient?.agents?.createConversation) {
+      setMessages([
+        {
+          role: 'assistant',
+          content: 'Forge Intelligence is offline. Connect the base44 agent service to enable orchestration.'
+        }
+      ]);
+      return;
+    }
     try {
-      const conv = await base44.agents.createConversation({
+      const conv = await baseClient.agents.createConversation({
         agent_name: 'forge_orchestrator',
         metadata: {
           name: 'Pipeline Session',
@@ -46,8 +56,10 @@ export default function AIOrchestrator({ onJobCreate, onConfigUpdate }) {
   // Subscribe to conversation updates
   useEffect(() => {
     if (!conversation?.id) return;
-    
-    const unsubscribe = base44.agents.subscribeToConversation(conversation.id, (data) => {
+
+    if (!baseClient?.agents?.subscribeToConversation) return;
+
+    const unsubscribe = baseClient.agents.subscribeToConversation(conversation.id, (data) => {
       setMessages(data.messages);
       setIsProcessing(false);
     });
@@ -90,12 +102,22 @@ export default function AIOrchestrator({ onJobCreate, onConfigUpdate }) {
 
   const handleFileUpload = async (e) => {
     const files = Array.from(e.target.files);
+    if (!baseClient?.integrations?.Core?.UploadFile) {
+      setMessages((prev) => ([
+        ...prev,
+        {
+          role: 'assistant',
+          content: 'File uploads are unavailable because the base44 integration is not configured.'
+        }
+      ]));
+      return;
+    }
     setIsProcessing(true);
     
     const uploaded = [];
     for (const file of files) {
       try {
-        const { file_url } = await base44.integrations.Core.UploadFile({ file });
+        const { file_url } = await baseClient.integrations.Core.UploadFile({ file });
         uploaded.push({ name: file.name, url: file_url });
       } catch (error) {
         console.error('Upload failed:', error);
@@ -109,6 +131,13 @@ export default function AIOrchestrator({ onJobCreate, onConfigUpdate }) {
   const handleSendMessage = async () => {
     if (!inputValue.trim() && uploadedFiles.length === 0) return;
     if (!conversation) return;
+    if (!baseClient?.agents?.addMessage) {
+      setMessages((prev) => ([
+        ...prev,
+        { role: 'assistant', content: 'Messaging is unavailable until base44 is connected.' }
+      ]));
+      return;
+    }
 
     const messageContent = inputValue.trim() || 'I have uploaded files for processing';
     const fileUrls = uploadedFiles.map(f => f.url);
@@ -118,7 +147,7 @@ export default function AIOrchestrator({ onJobCreate, onConfigUpdate }) {
     setUploadedFiles([]);
 
     try {
-      await base44.agents.addMessage(conversation, {
+      await baseClient.agents.addMessage(conversation, {
         role: 'user',
         content: messageContent,
         file_urls: fileUrls.length > 0 ? fileUrls : undefined

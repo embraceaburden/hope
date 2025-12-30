@@ -251,12 +251,15 @@ def process_job(job_id):
         # ... process stage ...`;
 
   return (
-    <div className="min-h-screen" style={{ background: 'linear-gradient(135deg, #f6eee6 25%, #d7c2b0 50%, #f6eee6 100%)' }}>
+    <div
+      className="min-h-screen"
+      style={{ background: 'linear-gradient(135deg, var(--color-satin) 25%, var(--color-muted) 50%, var(--color-satin) 100%)' }}
+    >
       <div className="max-w-7xl mx-auto px-6 py-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-bold flex items-center gap-3" style={{ color: '#0c413c' }}>
-            <Server className="h-10 w-10" style={{ color: '#bc804d' }} />
+          <h1 className="text-4xl font-bold flex items-center gap-3" style={{ color: 'var(--color-pine-teal)' }}>
+            <Server className="h-10 w-10" style={{ color: 'var(--color-gold)' }} />
             Backend Integration Guide
           </h1>
           <p className="text-lg mt-2" style={{ color: '#6b7280' }}>
@@ -265,7 +268,10 @@ def process_job(job_id):
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="mb-6" style={{ background: 'rgba(255, 255, 255, 0.7)', border: '1px solid rgba(188, 128, 77, 0.2)' }}>
+          <TabsList
+            className="mb-6"
+            style={{ background: 'rgba(236, 235, 234, 0.7)', border: '1px solid rgba(188, 128, 77, 0.2)' }}
+          >
             <TabsTrigger value="quickstart">Quick Start</TabsTrigger>
             <TabsTrigger value="api-client">API Client</TabsTrigger>
             <TabsTrigger value="flask-backend">Flask Backend</TabsTrigger>
@@ -277,19 +283,22 @@ def process_job(job_id):
           <TabsContent value="quickstart" className="space-y-6">
             <Card style={{ background: 'rgba(255, 255, 255, 0.9)', border: '1px solid rgba(188, 128, 77, 0.2)' }}>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2" style={{ color: '#0c413c' }}>
-                  <PlayCircle className="h-5 w-5" style={{ color: '#bc804d' }} />
+                <CardTitle className="flex items-center gap-2" style={{ color: 'var(--color-pine-teal)' }}>
+                  <PlayCircle className="h-5 w-5" style={{ color: 'var(--color-gold)' }} />
                   3-Step Setup
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="space-y-4">
                   <div className="flex gap-4">
-                    <div className="flex-shrink-0 h-10 w-10 rounded-full flex items-center justify-center text-white font-bold" style={{ background: 'linear-gradient(135deg, #bc804d 0%, #9d442a 100%)' }}>
+                    <div
+                      className="flex-shrink-0 h-10 w-10 rounded-full flex items-center justify-center text-white font-bold"
+                      style={{ background: 'linear-gradient(135deg, var(--color-gold) 0%, var(--color-copper) 100%)' }}
+                    >
                       1
                     </div>
                     <div className="flex-1">
-                      <h3 className="font-semibold mb-2" style={{ color: '#0c413c' }}>Install Dependencies</h3>
+                      <h3 className="font-semibold mb-2" style={{ color: 'var(--color-pine-teal)' }}>Install Dependencies</h3>
                       <div className="relative">
                         <pre className="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto text-sm">
 pip install flask flask-cors flask-socketio requests
@@ -307,19 +316,22 @@ pip install flask flask-cors flask-socketio requests
                   </div>
 
                   <div className="flex gap-4">
-                    <div className="flex-shrink-0 h-10 w-10 rounded-full flex items-center justify-center text-white font-bold" style={{ background: 'linear-gradient(135deg, #bc804d 0%, #9d442a 100%)' }}>
+                    <div
+                      className="flex-shrink-0 h-10 w-10 rounded-full flex items-center justify-center text-white font-bold"
+                      style={{ background: 'linear-gradient(135deg, var(--color-gold) 0%, var(--color-copper) 100%)' }}
+                    >
                       2
                     </div>
                     <div className="flex-1">
-                      <h3 className="font-semibold mb-2" style={{ color: '#0c413c' }}>Download API Client</h3>
+                      <h3 className="font-semibold mb-2" style={{ color: 'var(--color-pine-teal)' }}>Download API Client</h3>
                       <p className="text-sm mb-3" style={{ color: '#6b7280' }}>
                         Save the API client code from the "API Client" tab as <code className="bg-gray-100 px-2 py-1 rounded">forge_api_client.py</code>
                       </p>
-                      <Button
-                        variant="outline"
-                        onClick={() => setActiveTab('api-client')}
-                        style={{ borderColor: '#bc804d' }}
-                      >
+                        <Button
+                          variant="outline"
+                          onClick={() => setActiveTab('api-client')}
+                          style={{ borderColor: 'var(--color-gold)', color: 'var(--color-pine-teal)' }}
+                        >
                         <Download className="h-4 w-4 mr-2" />
                         View API Client Code
                       </Button>
@@ -327,11 +339,14 @@ pip install flask flask-cors flask-socketio requests
                   </div>
 
                   <div className="flex gap-4">
-                    <div className="flex-shrink-0 h-10 w-10 rounded-full flex items-center justify-center text-white font-bold" style={{ background: 'linear-gradient(135deg, #bc804d 0%, #9d442a 100%)' }}>
+                    <div
+                      className="flex-shrink-0 h-10 w-10 rounded-full flex items-center justify-center text-white font-bold"
+                      style={{ background: 'linear-gradient(135deg, var(--color-gold) 0%, var(--color-copper) 100%)' }}
+                    >
                       3
                     </div>
                     <div className="flex-1">
-                      <h3 className="font-semibold mb-2" style={{ color: '#0c413c' }}>Start Backend Server</h3>
+                      <h3 className="font-semibold mb-2" style={{ color: 'var(--color-pine-teal)' }}>Start Backend Server</h3>
                       <div className="relative">
                         <pre className="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto text-sm">
 python app.py
@@ -368,24 +383,24 @@ python app.py
             {/* Architecture Overview */}
             <Card style={{ background: 'rgba(255, 255, 255, 0.9)', border: '1px solid rgba(188, 128, 77, 0.2)' }}>
               <CardHeader>
-                <CardTitle style={{ color: '#0c413c' }}>System Architecture</CardTitle>
+                <CardTitle style={{ color: 'var(--color-pine-teal)' }}>System Architecture</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="p-4 rounded-lg text-center" style={{ background: '#f6eee6', border: '1px solid rgba(188, 128, 77, 0.3)' }}>
-                      <Code2 className="h-8 w-8 mx-auto mb-2" style={{ color: '#bc804d' }} />
-                      <h4 className="font-semibold mb-1" style={{ color: '#0c413c' }}>Frontend</h4>
+                    <div className="p-4 rounded-lg text-center" style={{ background: 'var(--color-satin)', border: '1px solid rgba(188, 128, 77, 0.3)' }}>
+                      <Code2 className="h-8 w-8 mx-auto mb-2" style={{ color: 'var(--color-gold)' }} />
+                      <h4 className="font-semibold mb-1" style={{ color: 'var(--color-pine-teal)' }}>Frontend</h4>
                       <p className="text-xs" style={{ color: '#6b7280' }}>React + Base44</p>
                     </div>
-                    <div className="p-4 rounded-lg text-center" style={{ background: '#f6eee6', border: '1px solid rgba(188, 128, 77, 0.3)' }}>
-                      <Server className="h-8 w-8 mx-auto mb-2" style={{ color: '#bc804d' }} />
-                      <h4 className="font-semibold mb-1" style={{ color: '#0c413c' }}>Backend</h4>
+                    <div className="p-4 rounded-lg text-center" style={{ background: 'var(--color-satin)', border: '1px solid rgba(188, 128, 77, 0.3)' }}>
+                      <Server className="h-8 w-8 mx-auto mb-2" style={{ color: 'var(--color-gold)' }} />
+                      <h4 className="font-semibold mb-1" style={{ color: 'var(--color-pine-teal)' }}>Backend</h4>
                       <p className="text-xs" style={{ color: '#6b7280' }}>Flask + Python</p>
                     </div>
-                    <div className="p-4 rounded-lg text-center" style={{ background: '#f6eee6', border: '1px solid rgba(188, 128, 77, 0.3)' }}>
-                      <Zap className="h-8 w-8 mx-auto mb-2" style={{ color: '#bc804d' }} />
-                      <h4 className="font-semibold mb-1" style={{ color: '#0c413c' }}>Pipeline</h4>
+                    <div className="p-4 rounded-lg text-center" style={{ background: 'var(--color-satin)', border: '1px solid rgba(188, 128, 77, 0.3)' }}>
+                      <Zap className="h-8 w-8 mx-auto mb-2" style={{ color: 'var(--color-gold)' }} />
+                      <h4 className="font-semibold mb-1" style={{ color: 'var(--color-pine-teal)' }}>Pipeline</h4>
                       <p className="text-xs" style={{ color: '#6b7280' }}>Steganography Engine</p>
                     </div>
                   </div>
@@ -399,13 +414,13 @@ python app.py
             <Card style={{ background: 'rgba(255, 255, 255, 0.9)', border: '1px solid rgba(188, 128, 77, 0.2)' }}>
               <CardHeader>
                 <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center gap-2" style={{ color: '#0c413c' }}>
-                    <FileCode className="h-5 w-5" style={{ color: '#bc804d' }} />
+                  <CardTitle className="flex items-center gap-2" style={{ color: 'var(--color-pine-teal)' }}>
+                    <FileCode className="h-5 w-5" style={{ color: 'var(--color-gold)' }} />
                     forge_api_client.py
                   </CardTitle>
                   <Button
                     onClick={() => copyToClipboard(pythonApiClient)}
-                    style={{ background: 'linear-gradient(135deg, #bc804d 0%, #9d442a 100%)' }}
+                    style={{ background: 'linear-gradient(135deg, var(--color-gold) 0%, var(--color-copper) 100%)' }}
                     className="text-white"
                   >
                     <Copy className="h-4 w-4 mr-2" />
@@ -426,13 +441,13 @@ python app.py
             <Card style={{ background: 'rgba(255, 255, 255, 0.9)', border: '1px solid rgba(188, 128, 77, 0.2)' }}>
               <CardHeader>
                 <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center gap-2" style={{ color: '#0c413c' }}>
-                    <Terminal className="h-5 w-5" style={{ color: '#bc804d' }} />
+                  <CardTitle className="flex items-center gap-2" style={{ color: 'var(--color-pine-teal)' }}>
+                    <Terminal className="h-5 w-5" style={{ color: 'var(--color-gold)' }} />
                     app.py - Flask Backend Template
                   </CardTitle>
                   <Button
                     onClick={() => copyToClipboard(flaskBackendExample)}
-                    style={{ background: 'linear-gradient(135deg, #bc804d 0%, #9d442a 100%)' }}
+                    style={{ background: 'linear-gradient(135deg, var(--color-gold) 0%, var(--color-copper) 100%)' }}
                     className="text-white"
                   >
                     <Copy className="h-4 w-4 mr-2" />
@@ -468,13 +483,13 @@ python app.py
             <Card style={{ background: 'rgba(255, 255, 255, 0.9)', border: '1px solid rgba(188, 128, 77, 0.2)' }}>
               <CardHeader>
                 <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center gap-2" style={{ color: '#0c413c' }}>
-                    <Zap className="h-5 w-5" style={{ color: '#bc804d' }} />
+                  <CardTitle className="flex items-center gap-2" style={{ color: 'var(--color-pine-teal)' }}>
+                    <Zap className="h-5 w-5" style={{ color: 'var(--color-gold)' }} />
                     Real-Time Updates with WebSocket
                   </CardTitle>
                   <Button
                     onClick={() => copyToClipboard(websocketExample)}
-                    style={{ background: 'linear-gradient(135deg, #bc804d 0%, #9d442a 100%)' }}
+                    style={{ background: 'linear-gradient(135deg, var(--color-gold) 0%, var(--color-copper) 100%)' }}
                     className="text-white"
                   >
                     <Copy className="h-4 w-4 mr-2" />
@@ -488,7 +503,7 @@ python app.py
                 </pre>
 
                 <div>
-                  <h4 className="font-semibold mb-3" style={{ color: '#0c413c' }}>Integration Steps</h4>
+                  <h4 className="font-semibold mb-3" style={{ color: 'var(--color-pine-teal)' }}>Integration Steps</h4>
                   <ol className="space-y-2 text-sm" style={{ color: '#6b7280' }}>
                     <li className="flex gap-2">
                       <span className="font-semibold">1.</span>
@@ -577,7 +592,7 @@ python app.py
                         {endpoint.method}
                       </Badge>
                       <div className="flex-1">
-                        <code className="text-sm font-mono" style={{ color: '#0c413c' }}>{endpoint.path}</code>
+                        <code className="text-sm font-mono" style={{ color: 'var(--color-pine-teal)' }}>{endpoint.path}</code>
                         <p className="text-sm mt-2" style={{ color: '#6b7280' }}>{endpoint.desc}</p>
                         {endpoint.body && (
                           <div className="mt-2">
