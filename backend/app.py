@@ -21,7 +21,7 @@ from typing import Any
 import requests
 from flask import Flask, jsonify, request, send_file
 from flask_cors import CORS
-from flask_socketio import SocketIO, emit, join_room
+from flask_socketio import SocketIO, join_room
 from werkzeug.exceptions import HTTPException, RequestEntityTooLarge
 from werkzeug.utils import secure_filename
 
@@ -119,6 +119,11 @@ OUTPUT_REGISTRY: list[dict[str, Any]] = []
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ.get("SNOWFLAKE_SECRET", "forge-secret")
+app.config["SOCKET_AUTH_TOKEN"] = os.environ.get(
+    "FORGE_SOCKET_TOKEN", app.config["SECRET_KEY"]
+)
+app.config["SOCKET_PING_INTERVAL"] = int(os.environ.get("SOCKETIO_PING_INTERVAL", "25"))
+app.config["SOCKET_PING_TIMEOUT"] = int(os.environ.get("SOCKETIO_PING_TIMEOUT", "60"))
 app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024 * 1024
 
 CORS(
@@ -143,7 +148,13 @@ CORS(
     },
 )
 
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
+socketio = SocketIO(
+    app,
+    cors_allowed_origins="*",
+    async_mode="threading",
+    ping_interval=app.config["SOCKET_PING_INTERVAL"],
+    ping_timeout=app.config["SOCKET_PING_TIMEOUT"],
+)
 set_emitter(lambda job_id, job_data: socketio.emit("job_update", job_data, room=job_id))
 
 jobs: dict[str, dict[str, Any]] = {}
@@ -252,6 +263,17 @@ def _b64encode_bytes(payload: bytes | None) -> str | None:
     if payload is None:
         return None
     return base64.b64encode(payload).decode("utf-8")
+
+
+def _extract_socket_token(auth: dict | None) -> str | None:
+    if auth and isinstance(auth, dict):
+        token = auth.get("token")
+        if token:
+            return token
+    header = request.headers.get("Authorization", "")
+    if header.startswith("Bearer "):
+        return header.removeprefix("Bearer ").strip()
+    return request.args.get("token")
 
 
 def _read_upload_bytes(field: str = "file") -> tuple[bytes, str]:
@@ -888,18 +910,18 @@ def offline_verify() -> Any:
         return _offline_error(exc, "Offline verification failed")
 
 
-@socketio.on('connect')
-def handle_connect():
-    print('Client connected')
+@socketio.on("connect")
+def handle_connect(auth):
+    token = _extract_socket_token(auth)
+    if not token or token != app.config["SOCKET_AUTH_TOKEN"]:
+        app.logger.warning("Socket.IO auth failed from %s", request.remote_addr)
+        return False
+    app.logger.info("Socket.IO client connected")
 
-@socketio.on('subscribe_job')
+@socketio.on("subscribe_job")
 def handle_subscribe(data):
-    job_id = data.get('jobId')
+    job_id = data.get("jobId")
     join_room(job_id)
-
-def emit_job_update(job_id, job_data):
-    """Call this function from anywhere in your pipeline"""
-    socketio.emit('job_update', job_data, room=job_id)
 
 def _process_encapsulation(job_id: str) -> None:
     job = _get_job(job_id)

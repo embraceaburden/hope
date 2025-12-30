@@ -128,6 +128,30 @@ Checks Ollama availability. Configure the Ollama base URL via:
 export OLLAMA_URL=http://localhost:11434
 ```
 
+### WebSocket Auth & Connection Settings
+
+The Socket.IO server requires a token on connect. Configure the shared token with:
+
+```
+export FORGE_SOCKET_TOKEN=your-shared-socket-token
+```
+
+Clients must provide the token via the Socket.IO auth payload (recommended) or the
+`Authorization: Bearer <token>` header. Example client connection:
+
+```javascript
+const socket = io("http://localhost:5000", {
+  auth: { token: "your-shared-socket-token" }
+});
+```
+
+Heartbeat tuning is available via environment variables:
+
+```
+export SOCKETIO_PING_INTERVAL=25
+export SOCKETIO_PING_TIMEOUT=60
+```
+
 ### WebSocket Events
 
 **Client → Server:**
