@@ -58,6 +58,10 @@ wheels/
 *.egg
 MANIFEST
 
+# Allow frontend utility helpers
+!frontend/src/lib/
+!frontend/src/lib/**
+
 # --- Testing & Coverage ---
 htmlcov/
 .tox/
@@ -80,4 +84,3 @@ Thumbs.db
 # --- Project Specifics ---
 # For a library, you might track this; for an app, often ignored
 # .python-version
-
