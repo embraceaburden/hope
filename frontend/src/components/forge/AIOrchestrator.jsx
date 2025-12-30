@@ -6,6 +6,7 @@ import { X, Minus, MessageSquare, Upload, Send, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import MessageBubble from './MessageBubble';
 import { getOllamaConfig, sendOllamaChat } from '@/lib/aiChatClient';
+import { forgeApi } from './forgeApi';
 
 export default function AIOrchestrator({ onJobCreate, onConfigUpdate }) {
   const [isExpanded, setIsExpanded] = useState(true);
@@ -20,6 +21,11 @@ export default function AIOrchestrator({ onJobCreate, onConfigUpdate }) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const [provider, setProvider] = useState('ollama');
+  const [providerHealth, setProviderHealth] = useState({
+    base44: { status: 'unknown', checkedAt: null, error: null },
+    ollama: { status: 'unknown', checkedAt: null, error: null }
+  });
+  const [fallbackNotice, setFallbackNotice] = useState(null);
   const baseClient = typeof window !== 'undefined' ? window.base44 : null;
   const ollamaConfig = getOllamaConfig();
   
@@ -30,12 +36,83 @@ export default function AIOrchestrator({ onJobCreate, onConfigUpdate }) {
   const dragOffset = useRef({ x: 0, y: 0 });
 
   const isBase44Available = Boolean(baseClient?.agents?.createConversation);
+  const base44Healthy = providerHealth.base44?.status === 'healthy';
+  const ollamaHealthy = providerHealth.ollama?.status === 'healthy';
+
+  const logProviderMetric = ({ providerName, latencyMs, ok, error }) => {
+    const payload = {
+      provider: providerName,
+      latencyMs,
+      ok,
+      error
+    };
+    if (ok) {
+      console.info('[AI Telemetry]', payload);
+    } else {
+      console.warn('[AI Telemetry]', payload);
+    }
+  };
 
   // Initialize conversation
   useEffect(() => {
-    setProvider(isBase44Available ? 'base44' : 'ollama');
+    setProvider(base44Healthy ? 'base44' : 'ollama');
     initConversation();
+  }, [base44Healthy, isBase44Available]);
+
+  useEffect(() => {
+    setProviderHealth((prev) => ({
+      ...prev,
+      base44: {
+        status: isBase44Available ? prev.base44.status : 'unavailable',
+        checkedAt: new Date().toISOString(),
+        error: isBase44Available ? prev.base44.error : 'Base44 client not detected.'
+      }
+    }));
   }, [isBase44Available]);
+
+  useEffect(() => {
+    if (base44Healthy) {
+      setFallbackNotice(null);
+    }
+  }, [base44Healthy]);
+
+  useEffect(() => {
+    let isMounted = true;
+    const refreshHealth = async () => {
+      try {
+        const data = await forgeApi.aiHealth();
+        const ollamaStatus = data?.providers?.ollama?.status || 'unknown';
+        if (isMounted) {
+          setProviderHealth((prev) => ({
+            ...prev,
+            ollama: {
+              status: ollamaStatus,
+              checkedAt: new Date().toISOString(),
+              error: data?.providers?.ollama?.error || null,
+              latencyMs: data?.providers?.ollama?.latencyMs ?? null
+            }
+          }));
+        }
+      } catch (error) {
+        if (isMounted) {
+          setProviderHealth((prev) => ({
+            ...prev,
+            ollama: {
+              status: 'unhealthy',
+              checkedAt: new Date().toISOString(),
+              error: error.message
+            }
+          }));
+        }
+      }
+    };
+    refreshHealth();
+    const intervalId = setInterval(refreshHealth, 30000);
+    return () => {
+      isMounted = false;
+      clearInterval(intervalId);
+    };
+  }, []);
 
   const initConversation = async () => {
     if (!isBase44Available) {
@@ -48,6 +125,7 @@ export default function AIOrchestrator({ onJobCreate, onConfigUpdate }) {
       return;
     }
     try {
+      const start = performance?.now ? performance.now() : Date.now();
       const conv = await baseClient.agents.createConversation({
         agent_name: 'forge_orchestrator',
         metadata: {
@@ -55,10 +133,26 @@ export default function AIOrchestrator({ onJobCreate, onConfigUpdate }) {
           session_start: new Date().toISOString()
         }
       });
+      const latencyMs = Math.round((performance?.now ? performance.now() : Date.now()) - start);
+      logProviderMetric({ providerName: 'base44', latencyMs, ok: true });
+      setProviderHealth((prev) => ({
+        ...prev,
+        base44: { status: 'healthy', checkedAt: new Date().toISOString(), error: null }
+      }));
       setConversation(conv);
       setMessages(conv.messages || []);
     } catch (error) {
       console.error('Failed to initialize conversation:', error);
+      logProviderMetric({
+        providerName: 'base44',
+        latencyMs: null,
+        ok: false,
+        error: error.message
+      });
+      setProviderHealth((prev) => ({
+        ...prev,
+        base44: { status: 'unhealthy', checkedAt: new Date().toISOString(), error: error.message }
+      }));
     }
   };
 
@@ -148,7 +242,7 @@ export default function AIOrchestrator({ onJobCreate, onConfigUpdate }) {
     setUploadedFiles([]);
 
     try {
-      if (isBase44Available) {
+      if (base44Healthy) {
         if (!conversation || !baseClient?.agents?.addMessage) {
           setMessages((prev) => ([
             ...prev,
@@ -156,12 +250,34 @@ export default function AIOrchestrator({ onJobCreate, onConfigUpdate }) {
           ]));
           return;
         }
+        const start = performance?.now ? performance.now() : Date.now();
         await baseClient.agents.addMessage(conversation, {
           role: 'user',
           content: messageContent,
           file_urls: fileUrls.length > 0 ? fileUrls : undefined
         });
+        const latencyMs = Math.round((performance?.now ? performance.now() : Date.now()) - start);
+        logProviderMetric({ providerName: 'base44', latencyMs, ok: true });
+      } else if (!ollamaHealthy) {
+        setMessages((prev) => ([
+          ...prev,
+          {
+            role: 'assistant',
+            content:
+              'Both base44 and Ollama are unavailable. Please check provider health and try again.'
+          }
+        ]));
+        setIsProcessing(false);
+        return;
       } else {
+        if (isBase44Available && !base44Healthy) {
+          const notice = 'Base44 is unavailable, falling back to Ollama.';
+          setFallbackNotice(notice);
+          setMessages((prev) => ([
+            ...prev,
+            { role: 'assistant', content: notice }
+          ]));
+        }
         const nextMessages = [
           ...messages,
           { role: 'user', content: messageContent }
@@ -170,7 +286,8 @@ export default function AIOrchestrator({ onJobCreate, onConfigUpdate }) {
         const responseText = await sendOllamaChat({
           messages: nextMessages,
           baseUrl: ollamaConfig.baseUrl,
-          model: ollamaConfig.model
+          model: ollamaConfig.model,
+          timeoutMs: ollamaConfig.timeoutMs
         });
         setMessages((prev) => ([
           ...prev,
@@ -179,6 +296,13 @@ export default function AIOrchestrator({ onJobCreate, onConfigUpdate }) {
       }
     } catch (error) {
       console.error('Failed to send message:', error);
+      logProviderMetric({ providerName: provider, latencyMs: null, ok: false, error: error.message });
+      if (provider === 'base44') {
+        setProviderHealth((prev) => ({
+          ...prev,
+          base44: { status: 'unhealthy', checkedAt: new Date().toISOString(), error: error.message }
+        }));
+      }
       setMessages((prev) => ([
         ...prev,
         { role: 'assistant', content: `Error sending message: ${error.message}` }
@@ -260,6 +384,11 @@ export default function AIOrchestrator({ onJobCreate, onConfigUpdate }) {
         {/* Messages */}
         {!isMinimized && (
           <>
+            {fallbackNotice && (
+              <div className="px-4 py-2 text-xs text-[var(--color-copper)] bg-[var(--color-satin)] border-b border-[var(--color-gold)]/20">
+                {fallbackNotice}
+              </div>
+            )}
             <div className="h-[400px] overflow-y-auto p-4 space-y-4 bg-gradient-to-b from-white/50 to-white/30 dark:from-[var(--color-pine-teal)]/50 dark:to-[var(--color-pine-teal)]/30">
               {messages.length === 0 && (
                 <div className="text-center text-sm text-gray-500 mt-8">
