@@ -32,6 +32,7 @@ from decompress import decompress_blob
 from extract import extract_binary_data
 from job_updates import emit_job_update, set_emitter
 from map_and_scramble import geometric_map_and_scramble
+from neuro_shatter import run_neuro_shatter, should_use_neuro_shatter
 from preparation import validate_and_clean
 from security import cryptographic_seal
 from storage import RedisJobStore, SqliteJobStore
@@ -63,9 +64,10 @@ PHASES = [
     {
         "id": "convert",
         "label": "Neuroglyph Serialize",
-        "description": "Serialize payload using Neuroglyph codecs.",
+        "description": "Serialize payload using Neuroglyph codecs or Neuro-Shatter for tabular data.",
         "options": {
             "codecProfile": "balanced",
+            "neuroShatter": "auto",
         },
     },
     {
@@ -117,6 +119,7 @@ GLOBAL_OPTIONS = {
     "theme": "light",
     "engineMode": ENGINE_MODE,
     "executeEngine": True,
+    "neuroShatter": "auto",
 }
 
 UPLOAD_REGISTRY: dict[str, dict[str, Any]] = {}
@@ -990,8 +993,16 @@ def _run_engine_pipeline(job_id: str, job: dict[str, Any], output_path: Path) ->
             package = validate_and_clean({"file": payload_bytes, "name": payload_path.name})
             context["package"] = package
         elif phase_id == "convert":
-            context.update(serialize_and_patternize(context["package"]))
+            package = context["package"]
+            if should_use_neuro_shatter(package, options):
+                context.update(run_neuro_shatter(package))
+                context["convert_skipped"] = True
+            else:
+                context.update(serialize_and_patternize(package))
         elif phase_id == "compress":
+            if context.get("compressed_blob") is not None:
+                mark_progress(phase_id)
+                continue
             context.update(
                 hyper_compress(
                     context["patternized_blob"],
