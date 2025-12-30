@@ -34,6 +34,25 @@ VITE_OLLAMA_MODEL=llama3.2
 
 When base44 is unavailable or unhealthy, the UI falls back to Ollama and shows a hint in the chat panel.
 
+## Offline Mode Operation
+
+The dashboard automatically switches to offline mode when the backend is unreachable. Jobs created while
+offline are queued locally in IndexedDB and synced to `/api/encapsulate` once connectivity is restored.
+
+**Requirements**
+
+- A local Forge backend with the offline endpoints enabled (`/prepare`, `/compress`, `/map`, etc.).
+- Optional: an Ollama instance for local AI fallback.
+
+To check that Ollama has the configured model pulled, ensure:
+
+```
+VITE_OLLAMA_URL=http://localhost:11434
+VITE_OLLAMA_MODEL=llama3.2
+```
+
+The client will query `/api/tags` on the Ollama host to verify the model is available.
+
 ## Building the app
 
 ```bash
