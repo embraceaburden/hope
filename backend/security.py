@@ -16,7 +16,6 @@ def cryptographic_seal(
 	alpha_layer: bytes = None,
 	kdf_iterations: int = 100_000
 ) -> dict:
-	emit_job_update(job_id, job_data)
 	"""
 	Applies cryptographic sealing to the embedded image using PyCryptodome (AES-GCM).
 	Supports password-based key derivation (PBKDF2) and optional Pillow alpha-layer compositing.

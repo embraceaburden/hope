@@ -49,7 +49,18 @@ class RedisJobStore:
             return
         self.client.srem("snowflake:jobs:active", job_id)
         self.client.sadd("snowflake:jobs:archived", job_id)
-        emit_job_update(job_id, job_data)
+
+    def list_jobs(self, limit: int = 100) -> list[dict]:
+        if not self.client:
+            return []
+        job_ids = list(self.client.smembers("snowflake:jobs:active"))
+        job_ids += list(self.client.smembers("snowflake:jobs:archived"))
+        jobs = []
+        for job_id in job_ids[:limit]:
+            job = self.get_job(job_id)
+            if job:
+                jobs.append(job)
+        return jobs
 
 class SqliteJobStore:
     def __init__(self, db_path: str) -> None:
@@ -78,10 +89,15 @@ class SqliteJobStore:
                     metrics_json TEXT,
                     geometric_key TEXT,
                     output_path TEXT,
-                    error TEXT
+                    error TEXT,
+                    job_json TEXT
                 )
                 """
             )
+            cursor.execute("PRAGMA table_info(jobs)")
+            existing_columns = {row[1] for row in cursor.fetchall()}
+            if "job_json" not in existing_columns:
+                cursor.execute("ALTER TABLE jobs ADD COLUMN job_json TEXT")
             cursor.execute(
                 """
                 CREATE TABLE IF NOT EXISTS job_events (
@@ -119,6 +135,7 @@ class SqliteJobStore:
         geometric_key = job.get("geometricKey")
         output_path = job.get("outputPath")
         error = job.get("error")
+        job_json = json.dumps(job)
 
         with self._lock, self._connect() as conn:
             cursor = conn.cursor()
@@ -134,8 +151,9 @@ class SqliteJobStore:
                     metrics_json,
                     geometric_key,
                     output_path,
-                    error
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    error,
+                    job_json
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(job_id) DO UPDATE SET
                     job_type=excluded.job_type,
                     status=excluded.status,
@@ -144,7 +162,8 @@ class SqliteJobStore:
                     metrics_json=excluded.metrics_json,
                     geometric_key=excluded.geometric_key,
                     output_path=excluded.output_path,
-                    error=excluded.error
+                    error=excluded.error,
+                    job_json=excluded.job_json
                 """,
                 (
                     job.get("jobId"),
@@ -157,9 +176,79 @@ class SqliteJobStore:
                     geometric_key,
                     output_path,
                     error,
+                    job_json,
                 ),
             )
             conn.commit()
+
+    def get_job(self, job_id: str) -> dict | None:
+        with self._lock, self._connect() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT job_json, job_type, status, created_at, updated_at,
+                       options_json, metrics_json, geometric_key, output_path, error
+                FROM jobs
+                WHERE job_id = ?
+                """,
+                (job_id,),
+            )
+            row = cursor.fetchone()
+        if not row:
+            return None
+        job_json = row[0]
+        if job_json:
+            return json.loads(job_json)
+        return {
+            "jobId": job_id,
+            "type": row[1],
+            "status": row[2],
+            "createdAt": row[3],
+            "updatedAt": row[4],
+            "options": json.loads(row[5]) if row[5] else None,
+            "metrics": json.loads(row[6]) if row[6] else None,
+            "geometricKey": row[7],
+            "outputPath": row[8],
+            "error": row[9],
+        }
+
+    def list_jobs(self, limit: int = 100, status: str | None = None) -> list[dict]:
+        query = (
+            "SELECT job_id, job_json, job_type, status, created_at, updated_at, "
+            "options_json, metrics_json, geometric_key, output_path, error "
+            "FROM jobs"
+        )
+        params: list = []
+        if status:
+            query += " WHERE status = ?"
+            params.append(status)
+        query += " ORDER BY created_at DESC LIMIT ?"
+        params.append(limit)
+        with self._lock, self._connect() as conn:
+            cursor = conn.cursor()
+            cursor.execute(query, params)
+            rows = cursor.fetchall()
+        jobs = []
+        for row in rows:
+            job_id, job_json, job_type, status_value, created_at, updated_at, options_json, metrics_json, geometric_key, output_path, error = row
+            if job_json:
+                jobs.append(json.loads(job_json))
+            else:
+                jobs.append(
+                    {
+                        "jobId": job_id,
+                        "type": job_type,
+                        "status": status_value,
+                        "createdAt": created_at,
+                        "updatedAt": updated_at,
+                        "options": json.loads(options_json) if options_json else None,
+                        "metrics": json.loads(metrics_json) if metrics_json else None,
+                        "geometricKey": geometric_key,
+                        "outputPath": output_path,
+                        "error": error,
+                    }
+                )
+        return jobs
 
     def record_event(self, job_id: str, event_type: str, payload: dict) -> None:
         with self._lock, self._connect() as conn:

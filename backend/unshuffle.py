@@ -14,7 +14,6 @@ def reverse_geometric_scramble(
 	backend: str = "latte",
 	block_size: int = None
 ) -> dict:
-	emit_job_update(job_id, job_data)
 	"""
 	Reverses the geometric scramble using PassageMath and the permutation key.
 	Returns a dict with the sequential binary data (as bytes) and metadata.

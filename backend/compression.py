@@ -8,7 +8,6 @@ import logging
 
 
 def hyper_compress(patternized_blob: bytes, zstd_dict: bytes = None, level: int = 22) -> dict:
-	emit_job_update(job_id, job_data)
 	"""
 	Applies Zstandard hyper-compression to the patternized binary blob.
 	Uses advanced frame helpers for diagnostics and supports optional dictionaries.

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import io
 import sys
 import time
@@ -67,6 +68,12 @@ def run_smoke() -> None:
         download_response = client.get(f"/api/download/{job_id}")
         assert download_response.status_code == 200, download_response.data
 
+        jobs_response = client.get("/api/jobs")
+        assert jobs_response.status_code == 200, jobs_response.data
+        jobs_payload = jobs_response.get_json()
+        job_ids = {job.get("jobId") for job in jobs_payload.get("jobs", [])}
+        assert job_id in job_ids
+
         geo_response = client.get(f"/api/geometric/key/{job_id}")
         assert geo_response.status_code == 200, geo_response.data
 
@@ -81,6 +88,16 @@ def run_smoke() -> None:
 
         extract_status = client.get(f"/api/extract/status/{extract_job_id}")
         assert extract_status.status_code == 200, extract_status.data
+
+        pipeline_request = {
+            "steps": ["prepare"],
+            "payload": {
+                "raw_bytes_b64": base64.b64encode(b"pipeline-bytes").decode("utf-8"),
+                "name": "pipeline.bin",
+            },
+        }
+        pipeline_response = client.post("/api/bridge/pipeline", json=pipeline_request)
+        assert pipeline_response.status_code == 200, pipeline_response.data
 
 
 if __name__ == "__main__":
