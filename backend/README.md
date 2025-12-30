@@ -54,6 +54,43 @@ exec(open("engine.py").read())
 - `GET /api/extract/status/<job_id>` - Extraction status
 - `GET /api/geometric/key/<job_id>` - Get geometric key
 - `POST /api/bridge/pipeline` - Run pipeline steps via the AI bridge
+- `GET /api/health/ai` - AI provider health (Ollama)
+
+### AI Bridge: `/api/bridge/pipeline`
+
+**Request schema**
+
+```json
+{
+  "steps": ["prepare", "convert", "compress", "map_and_scramble", "stego_embed", "seal"],
+  "payload": {
+    "raw_bytes_b64": "...",
+    "file_path": "/path/to/file.bin",
+    "carrier_image_b64": "...",
+    "carrier_image_path": "/path/to/carrier.png"
+  },
+  "options": {
+    "zstd_level": 22,
+    "polytope_type": "cube",
+    "poly_backend": "latte"
+  }
+}
+```
+
+**Notes**
+
+- `steps` is optional (defaults to the full pipeline).
+- `payload` and `options` must be JSON objects.
+- For `prepare`, provide `raw_bytes_b64` or `file_path`.
+- For `stego_embed`, provide `carrier_image_b64` or `carrier_image_path`.
+
+### AI Health: `/api/health/ai`
+
+Checks Ollama availability. Configure the Ollama base URL via:
+
+```
+export OLLAMA_URL=http://localhost:11434
+```
 
 ### WebSocket Events
 

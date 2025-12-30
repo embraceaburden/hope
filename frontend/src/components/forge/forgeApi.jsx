@@ -22,6 +22,23 @@ const handleJsonResponse = async (response, fallbackMessage) => {
   return data;
 };
 
+const validatePipelineRequest = (request) => {
+  if (!request || typeof request !== 'object' || Array.isArray(request)) {
+    throw new Error('Pipeline request must be an object.');
+  }
+  if (request.steps !== undefined) {
+    if (!Array.isArray(request.steps) || request.steps.some((step) => typeof step !== 'string')) {
+      throw new Error('Pipeline steps must be an array of strings.');
+    }
+  }
+  if (request.payload !== undefined && (typeof request.payload !== 'object' || request.payload === null)) {
+    throw new Error('Pipeline payload must be an object.');
+  }
+  if (request.options !== undefined && (typeof request.options !== 'object' || request.options === null)) {
+    throw new Error('Pipeline options must be an object.');
+  }
+};
+
 export const forgeApi = {
   /**
    * Health check endpoint
@@ -29,6 +46,14 @@ export const forgeApi = {
   async health() {
     const response = await fetch(`${BASE_URL}/`);
     return handleJsonResponse(response, 'Backend health check failed');
+  },
+
+  /**
+   * AI provider health check
+   */
+  async aiHealth() {
+    const response = await fetch(`${BASE_URL}/api/health/ai`);
+    return handleJsonResponse(response, 'AI health check failed');
   },
 
   /**
@@ -147,6 +172,7 @@ export const forgeApi = {
    * Run custom pipeline steps via AI bridge
    */
   async runPipeline(request) {
+    validatePipelineRequest(request);
     const response = await fetch(`${BASE_URL}/api/bridge/pipeline`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

@@ -21,6 +21,20 @@ from stego_engine import embed_steganographic
 from security import cryptographic_seal
 
 
+ALLOWED_STEPS = (
+    "prepare",
+    "convert",
+    "compress",
+    "map_and_scramble",
+    "stego_embed",
+    "seal",
+)
+
+
+class BridgeValidationError(ValueError):
+    """Raised when the bridge payload fails validation."""
+
+
 def _b64_decode(value: str | None) -> bytes | None:
     if not value:
         return None
@@ -47,17 +61,60 @@ def _load_request(path: Path | None) -> dict[str, Any]:
     return json.loads(input())
 
 
-def run_pipeline(request: dict[str, Any]) -> dict[str, Any]:
-    steps = request.get("steps") or [
-        "prepare",
-        "convert",
-        "compress",
-        "map_and_scramble",
-        "stego_embed",
-        "seal",
-    ]
+def _validate_string_field(payload: dict[str, Any], key: str) -> None:
+    if key in payload and payload[key] is not None and not isinstance(payload[key], str):
+        raise BridgeValidationError(f"{key} must be a string")
+
+
+def _validate_steps(steps: Any) -> list[str]:
+    if not isinstance(steps, list):
+        raise BridgeValidationError("steps must be a list of strings")
+    normalized: list[str] = []
+    for step in steps:
+        if not isinstance(step, str):
+            raise BridgeValidationError("steps must be a list of strings")
+        if step not in ALLOWED_STEPS:
+            raise BridgeValidationError(f"Unknown step: {step}")
+        normalized.append(step)
+    if not normalized:
+        raise BridgeValidationError("steps must include at least one step")
+    return normalized
+
+
+def validate_request(request: dict[str, Any]) -> tuple[list[str], dict[str, Any], dict[str, Any]]:
+    if not isinstance(request, dict):
+        raise BridgeValidationError("Pipeline request must be a JSON object")
+
+    raw_steps = request.get("steps")
+    steps = _validate_steps(raw_steps) if raw_steps is not None else list(ALLOWED_STEPS)
+
     payload = request.get("payload", {})
+    if payload is None or not isinstance(payload, dict):
+        raise BridgeValidationError("payload must be a JSON object")
+
     options = request.get("options", {})
+    if options is None or not isinstance(options, dict):
+        raise BridgeValidationError("options must be a JSON object")
+
+    for key in (
+        "raw_bytes_b64",
+        "file_path",
+        "zstd_dict_b64",
+        "zstd_dict_path",
+        "carrier_image_b64",
+        "carrier_image_path",
+        "alpha_layer_b64",
+        "alpha_layer_path",
+        "seal_key_b64",
+        "seal_key_path",
+    ):
+        _validate_string_field(payload, key)
+
+    return steps, payload, options
+
+
+def run_pipeline(request: dict[str, Any]) -> dict[str, Any]:
+    steps, payload, options = validate_request(request)
 
     context: dict[str, Any] = {"payload": payload, "options": options}
 
@@ -65,7 +122,7 @@ def run_pipeline(request: dict[str, Any]) -> dict[str, Any]:
         if step == "prepare":
             file_bytes = _load_bytes(payload, "raw_bytes_b64", "file_path")
             if not file_bytes:
-                raise ValueError("prepare step requires raw_bytes_b64 or file_path")
+                raise BridgeValidationError("prepare step requires raw_bytes_b64 or file_path")
             package = validate_and_clean({
                 "file": file_bytes,
                 "name": payload.get("name", "payload"),
@@ -94,7 +151,9 @@ def run_pipeline(request: dict[str, Any]) -> dict[str, Any]:
         elif step == "stego_embed":
             carrier_image = _load_bytes(payload, "carrier_image_b64", "carrier_image_path")
             if not carrier_image:
-                raise ValueError("stego_embed step requires carrier_image_b64 or carrier_image_path")
+                raise BridgeValidationError(
+                    "stego_embed step requires carrier_image_b64 or carrier_image_path"
+                )
             context.update(
                 embed_steganographic(
                     context["scrambled_blob"],
@@ -119,7 +178,7 @@ def run_pipeline(request: dict[str, Any]) -> dict[str, Any]:
                 )
             )
         else:
-            raise ValueError(f"Unknown step: {step}")
+            raise BridgeValidationError(f"Unknown step: {step}")
 
     return {
         "status": "ok",

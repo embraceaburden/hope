@@ -18,13 +18,14 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+import requests
 from flask import Flask, jsonify, request, send_file
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit, join_room
 from werkzeug.exceptions import HTTPException, RequestEntityTooLarge
 from werkzeug.utils import secure_filename
 
-from ai_bridge import run_pipeline
+from ai_bridge import BridgeValidationError, run_pipeline
 from job_updates import emit_job_update, set_emitter
 from storage import RedisJobStore, SqliteJobStore
 
@@ -569,14 +570,46 @@ def bridge_pipeline() -> Any:
     payload = request.get_json(silent=True)
     if payload is None:
         return _error_response("Invalid JSON payload", 400)
-    if not isinstance(payload, dict):
-        return _error_response("Pipeline request must be a JSON object", 400)
     try:
         response = run_pipeline(payload)
+    except BridgeValidationError as exc:
+        return _error_response(str(exc), 400)
     except Exception:
         app.logger.exception("Pipeline execution failed")
         return _error_response("Pipeline execution failed", 500)
     return jsonify(response)
+
+
+@app.route("/api/health/ai", methods=["GET"])
+def ai_health() -> Any:
+    ollama_url = os.environ.get("OLLAMA_URL", "http://localhost:11434")
+    ollama_health = {"status": "unknown", "latencyMs": None, "error": None, "url": ollama_url}
+    start = time.monotonic()
+    try:
+        response = requests.get(f"{ollama_url}/api/version", timeout=2)
+        latency_ms = int((time.monotonic() - start) * 1000)
+        if response.ok:
+            data = response.json() if response.headers.get("content-type", "").startswith("application/json") else {}
+            ollama_health.update(
+                {
+                    "status": "healthy",
+                    "latencyMs": latency_ms,
+                    "version": data.get("version"),
+                }
+            )
+        else:
+            ollama_health.update(
+                {
+                    "status": "unhealthy",
+                    "latencyMs": latency_ms,
+                    "error": f"HTTP {response.status_code}",
+                }
+            )
+    except requests.RequestException as exc:
+        ollama_health.update({"status": "unhealthy", "error": str(exc)})
+
+    overall_status = "ok" if ollama_health["status"] == "healthy" else "degraded"
+    return jsonify({"status": overall_status, "providers": {"ollama": ollama_health}})
 
 
 @socketio.on('connect')
