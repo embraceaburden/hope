@@ -1,13 +1,34 @@
 const BASE_URL = import.meta.env.VITE_FORGE_BACKEND_URL || 'http://localhost:5000';
 
+const parseResponseBody = async (response) => {
+  const text = await response.text();
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text;
+  }
+};
+
+const handleJsonResponse = async (response, fallbackMessage) => {
+  const data = await parseResponseBody(response);
+  if (!response.ok) {
+    const errorMessage =
+      (data && typeof data === 'object' && (data.message || data.error)) ||
+      (typeof data === 'string' ? data : null) ||
+      fallbackMessage;
+    throw new Error(errorMessage);
+  }
+  return data;
+};
+
 export const forgeApi = {
   /**
    * Health check endpoint
    */
   async health() {
     const response = await fetch(`${BASE_URL}/`);
-    if (!response.ok) throw new Error('Backend health check failed');
-    return response.json();
+    return handleJsonResponse(response, 'Backend health check failed');
   },
 
   /**
@@ -22,11 +43,7 @@ export const forgeApi = {
       body: formData
     });
 
-    if (!response.ok) {
-      throw new Error(`Upload failed: ${response.statusText}`);
-    }
-
-    return response.json();
+    return handleJsonResponse(response, `Upload failed: ${response.statusText}`);
   },
 
   /**
@@ -59,12 +76,7 @@ export const forgeApi = {
       body: formData
     });
 
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      throw new Error(error.message || `Encapsulation failed: ${response.statusText}`);
-    }
-
-    return response.json();
+    return handleJsonResponse(response, `Encapsulation failed: ${response.statusText}`);
   },
 
   /**
@@ -73,11 +85,7 @@ export const forgeApi = {
   async getJobStatus(jobId) {
     const response = await fetch(`${BASE_URL}/api/job/${jobId}`);
     
-    if (!response.ok) {
-      throw new Error(`Failed to get job status: ${response.statusText}`);
-    }
-
-    return response.json();
+    return handleJsonResponse(response, `Failed to get job status: ${response.statusText}`);
   },
 
   /**
@@ -114,12 +122,7 @@ export const forgeApi = {
       body: formData
     });
 
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      throw new Error(error.message || `Extraction failed: ${response.statusText}`);
-    }
-
-    return response.json();
+    return handleJsonResponse(response, `Extraction failed: ${response.statusText}`);
   },
 
   /**
@@ -128,11 +131,7 @@ export const forgeApi = {
   async getExtractionStatus(jobId) {
     const response = await fetch(`${BASE_URL}/api/extract/status/${jobId}`);
     
-    if (!response.ok) {
-      throw new Error(`Failed to get extraction status: ${response.statusText}`);
-    }
-
-    return response.json();
+    return handleJsonResponse(response, `Failed to get extraction status: ${response.statusText}`);
   },
 
   /**
@@ -141,11 +140,7 @@ export const forgeApi = {
   async getGeometricKey(jobId) {
     const response = await fetch(`${BASE_URL}/api/geometric/key/${jobId}`);
     
-    if (!response.ok) {
-      throw new Error(`Failed to get geometric key: ${response.statusText}`);
-    }
-
-    return response.json();
+    return handleJsonResponse(response, `Failed to get geometric key: ${response.statusText}`);
   },
 
   /**
@@ -158,11 +153,6 @@ export const forgeApi = {
       body: JSON.stringify(request)
     });
 
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      throw new Error(error.message || `Pipeline failed: ${response.statusText}`);
-    }
-
-    return response.json();
+    return handleJsonResponse(response, `Pipeline failed: ${response.statusText}`);
   }
 };
