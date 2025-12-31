@@ -346,7 +346,7 @@ class NeuroShatterEngine:
         return report_dict
 
     def shatter_patterns(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Stage 2: Pattern Extraction (The 1000x Logic)."""
+        """Stage 3: Pattern Extraction (The 1000x Logic)."""
         residuals = df.copy()
         for col in df.columns:
             if df[col].nunique(dropna=False) == 1:
@@ -367,7 +367,7 @@ class NeuroShatterEngine:
         return residuals
 
     def clean_with_precision(self, df: pd.DataFrame) -> List[Dict[str, Any]]:
-        """Stage 3: Pydantic Precision Cleaning."""
+        """Stage 2: Pydantic Precision Cleaning."""
         if self.model is None:
             raise RuntimeError("Precision model was not built before cleaning.")
         cleaned_records: list[dict[str, Any]] = []
@@ -421,8 +421,11 @@ def run_neuro_shatter(package: DataPackage) -> dict[str, Any]:
 
     engine = NeuroShatterEngine()
     report = engine.profile_and_build_model(df)
-    residual_data = engine.shatter_patterns(df)
-    clean_payload = engine.clean_with_precision(residual_data)
+    # Stage 2: Precision cleaning before pattern extraction.
+    clean_payload = engine.clean_with_precision(df)
+    cleaned_df = pd.DataFrame(clean_payload)
+    # Stage 3: Pattern extraction on cleaned records.
+    engine.shatter_patterns(cleaned_df)
     compressed_blob = engine.jzpack_finalize(clean_payload, report)
 
     compression_ratio = (
