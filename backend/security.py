@@ -14,6 +14,7 @@ def cryptographic_seal(
 	password: str = None,
 	key: bytes = None,
 	alpha_layer: bytes = None,
+	user_data: dict[str, Any] | None = None,
 	kdf_iterations: int = 100_000
 ) -> dict:
 	"""
@@ -56,6 +57,7 @@ def cryptographic_seal(
 			"salt": salt.hex(),
 			"kdf_iterations": kdf_iterations if password else None,
 			"password_based": bool(password),
+			"user_data": user_data or {},
 		}
 		return {
 			"sealed_image": sealed_image,
