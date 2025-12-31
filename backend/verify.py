@@ -6,9 +6,11 @@ import json
 import logging
 
 import numpy as np
+import msgpack
 from PIL import Image
 from pydantic import ValidationError
 from reedsolo import RSCodec, ReedSolomonError
+import zstandard as zstd
 
 from preparation import DataPackage
 
@@ -55,9 +57,6 @@ def _rs_heal_payload(payload_bytes: bytes, parity_ratio: float = 0.5) -> tuple[b
 		return payload_bytes, metrics
 	if parity_ratio <= 0:
 		return payload_bytes, metrics
-		return payload_bytes
-	if parity_ratio <= 0:
-		return payload_bytes
 	block_size = int(len(payload_bytes) / (1 + parity_ratio))
 	parity_bytes = len(payload_bytes) - block_size
 	if parity_bytes <= 0:
@@ -81,6 +80,42 @@ def _extract_parity_ratio(restored_dict: dict | None) -> float:
 	except (TypeError, ValueError):
 		return 0.5
 
+def _decode_jzpack(restored_payload: bytes) -> tuple[dict[str, Any] | None, dict[str, Any]]:
+	metrics = {"zstd_decompressed": False, "msgpack_unpacked": False, "rs_healed": False}
+	if not isinstance(restored_payload, (bytes, bytearray)):
+		return None, metrics
+	try:
+		decompressed = zstd.ZstdDecompressor().decompress(restored_payload)
+		metrics["zstd_decompressed"] = True
+	except zstd.ZstdError:
+		return None, metrics
+
+	try:
+		jzpack = msgpack.unpackb(decompressed, raw=False)
+		metrics["msgpack_unpacked"] = True
+	except (msgpack.ExtraData, ValueError, TypeError):
+		return None, metrics
+
+	if not isinstance(jzpack, dict) or "payload" not in jzpack:
+		return None, metrics
+
+	metadata = jzpack.get("metadata") or {}
+	payload_bytes = jzpack.get("payload")
+	if not isinstance(payload_bytes, (bytes, bytearray)):
+		return None, metrics
+
+	parity_ratio = _extract_parity_ratio({"metadata": metadata})
+	healed_payload, rs_metrics = _rs_heal_payload(payload_bytes, parity_ratio=parity_ratio)
+	metrics["rs_healed"] = rs_metrics["rs_healed"]
+
+	try:
+		payload = msgpack.unpackb(healed_payload, raw=False)
+	except (msgpack.ExtraData, ValueError, TypeError):
+		return None, metrics
+
+	return {"metadata": metadata, "payload": payload}, metrics
+
+
 def verify_and_restore(restored_payload: bytes) -> dict:
 
 	"""
@@ -92,6 +127,15 @@ def verify_and_restore(restored_payload: bytes) -> dict:
 	restoration_metrics = {"luma_normalized": False, "bits_healed": 0, "parity_exhaustion": 0.0}
 	rs_healing_triggered = False
 	try:
+		jzpack_payload, jzpack_metrics = _decode_jzpack(restored_payload)
+		if jzpack_payload:
+			return {
+				"verified_data": jzpack_payload,
+				"restoration": "jzpack_verified",
+				"healed_payload": None,
+				"restoration_metrics": restoration_metrics | jzpack_metrics,
+				"rs_healing_triggered": jzpack_metrics["rs_healed"],
+			}
 		# Attempt to validate the restored payload as a DataPackage
 		if isinstance(restored_payload, bytes):
 			try:
@@ -105,7 +149,6 @@ def verify_and_restore(restored_payload: bytes) -> dict:
 				restoration_metrics["parity_exhaustion"] = max(
 					restoration_metrics["parity_exhaustion"], rs_metrics["parity_exhaustion"]
 				)
-				healed_payload = _rs_heal_payload(restored_payload, parity_ratio=parity_ratio)
 				restored_dict = json.loads(healed_payload.decode("utf-8"))
 				parity_ratio = _extract_parity_ratio(restored_dict)
 		else:
@@ -138,7 +181,6 @@ def verify_and_restore(restored_payload: bytes) -> dict:
 				restoration_metrics["parity_exhaustion"] = max(
 					restoration_metrics["parity_exhaustion"], rs_metrics["parity_exhaustion"]
 				)
-				healed_payload = _rs_heal_payload(repaired_bytes, parity_ratio=parity_ratio)
 				repaired_dict = json.loads(healed_payload.decode("utf-8"))
 			package = DataPackage(**repaired_dict)
 			healed_payload = json.dumps(package.dict()).encode("utf-8")
