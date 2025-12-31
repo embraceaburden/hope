@@ -132,24 +132,20 @@ app.config["SOCKET_PING_INTERVAL"] = int(os.environ.get("SOCKETIO_PING_INTERVAL"
 app.config["SOCKET_PING_TIMEOUT"] = int(os.environ.get("SOCKETIO_PING_TIMEOUT", "60"))
 app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024 * 1024
 
+LOCAL_UI_ORIGINS = [
+    "http://localhost:5173",
+    "http://localhost:3000",
+    "http://127.0.0.1:5173",
+    "http://127.0.0.1:3000",
+]
+
 CORS(
     app,
     resources={
-        r"/api/*": {
-            "origins": [
-                "http://localhost:5173",
-                "http://localhost:3000",
-                "http://127.0.0.1:5173",
-                "http://127.0.0.1:3000",
-            ]
-        },
+        r"/": {"origins": LOCAL_UI_ORIGINS},
+        r"/api/*": {"origins": LOCAL_UI_ORIGINS},
         r"/(prepare|compress|map|embed|seal|unlock|unmask|extract|unshuffle|decompress|verify)": {
-            "origins": [
-                "http://localhost:5173",
-                "http://localhost:3000",
-                "http://127.0.0.1:5173",
-                "http://127.0.0.1:3000",
-            ]
+            "origins": LOCAL_UI_ORIGINS,
         },
     },
 )

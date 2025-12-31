@@ -378,7 +378,7 @@ class NeuroShatterEngine:
         for record in raw_data:
             try:
                 clean_obj = self.model(**record)
-                cleaned_records.append(clean_obj.model_dump())
+                cleaned_records.append(clean_obj.model_dump(mode="python"))
             except Exception:
                 continue
         return cleaned_records
@@ -428,8 +428,9 @@ def run_neuro_shatter(package: DataPackage) -> dict[str, Any]:
     clean_payload = engine.clean_with_precision(df)
     cleaned_df = pd.DataFrame(clean_payload)
     # Stage 3: Pattern extraction on cleaned records.
-    engine.shatter_patterns(cleaned_df)
-    compressed_blob = engine.jzpack_finalize(clean_payload, report)
+    residual_data = engine.shatter_patterns(cleaned_df)
+    residual_payload = residual_data.to_dict(orient="records")
+    compressed_blob = engine.jzpack_finalize(residual_payload, report)
 
     compression_ratio = (
         len(package.raw_bytes) / len(compressed_blob)
@@ -442,7 +443,7 @@ def run_neuro_shatter(package: DataPackage) -> dict[str, Any]:
         "compression_ratio": compression_ratio,
         "neuro_shatter_report": report,
         "neuro_shatter_patterns": engine.patterns,
-        "neuro_shatter_records": len(clean_payload),
+        "neuro_shatter_records": len(residual_payload),
     }
 
 
