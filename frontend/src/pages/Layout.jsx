@@ -31,6 +31,10 @@ export default function Layout({ children, currentPageName }) {
     document.documentElement.classList.toggle('dark', newTheme === 'dark');
   };
 
+  const handleLogout = () => {
+    setUser(null);
+  };
+
 
   const navItems = [
     { name: 'Dashboard', page: 'Dashboard', icon: LayoutDashboard },

@@ -247,6 +247,24 @@ export default function Dashboard() {
     }
   };
 
+  const getJobDisplayId = (job) =>
+    job?.job_id || job?.id?.substring(0, 8) || 'Unknown';
+
+  const getJobKey = (job, index) =>
+    job?.id || job?.job_id || `job-${index}`;
+
+  const formatJobTimestamp = (job, format = 'time') => {
+    const createdAt = job?.created_date || job?.createdAt;
+    if (!createdAt) {
+      return format === 'time' ? 'Unknown time' : 'Unknown date';
+    }
+    const date = new Date(createdAt);
+    if (Number.isNaN(date.getTime())) {
+      return format === 'time' ? 'Unknown time' : 'Unknown date';
+    }
+    return format === 'time' ? date.toLocaleTimeString() : date.toLocaleString();
+  };
+
   return (
     <div
       className="min-h-screen"
@@ -412,9 +430,9 @@ export default function Dashboard() {
                 </CardHeader>
                 <CardContent className="p-0">
                   <div className="divide-y divide-[var(--color-gold)]/10">
-                    {jobs.slice(0, 8).map(job => (
+                    {jobs.slice(0, 8).map((job, index) => (
                       <button
-                        key={job.id}
+                        key={getJobKey(job, index)}
                         onClick={() => setSelectedJob(job)}
                         className="w-full p-4 text-left transition-colors"
                         style={selectedJob?.id === job.id ? { background: 'var(--color-satin)' } : {}}
@@ -423,7 +441,7 @@ export default function Dashboard() {
                       >
                         <div className="flex items-center justify-between mb-2">
                           <span className="font-medium text-sm" style={{ color: 'var(--color-pine-teal)' }}>
-                            {job.job_id || job.id.substring(0, 8)}
+                            {getJobDisplayId(job)}
                           </span>
                           <Badge className={getStatusColor(job.status)}>
                             {job.status}
@@ -432,7 +450,7 @@ export default function Dashboard() {
                         <div className="flex items-center gap-4 text-xs" style={{ color: '#6b7280' }}>
                           <span className="flex items-center gap-1">
                             <Clock className="h-3 w-3" />
-                            {new Date(job.created_date).toLocaleTimeString()}
+                            {formatJobTimestamp(job, 'time')}
                           </span>
                           <span className="capitalize">{job.job_type}</span>
                         </div>
@@ -532,9 +550,9 @@ export default function Dashboard() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
-                  {jobs.map(job => (
+                  {jobs.map((job, index) => (
                     <div
-                      key={job.id}
+                      key={getJobKey(job, index)}
                       className="p-4 rounded-lg border transition-colors cursor-pointer"
                       style={{ borderColor: 'rgba(188, 128, 77, 0.2)' }}
                       onMouseEnter={(e) => e.currentTarget.style.background = 'var(--color-satin)'}
@@ -547,10 +565,10 @@ export default function Dashboard() {
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="font-medium" style={{ color: 'var(--color-pine-teal)' }}>
-                            {job.job_id || job.id}
+                            {job?.job_id || job?.id || 'Unknown'}
                           </p>
                           <p className="text-xs mt-1" style={{ color: '#6b7280' }}>
-                            {new Date(job.created_date).toLocaleString()} • {job.job_type}
+                            {formatJobTimestamp(job, 'date')} • {job?.job_type || 'Unknown'}
                           </p>
                         </div>
                         <Badge className={getStatusColor(job.status)}>
