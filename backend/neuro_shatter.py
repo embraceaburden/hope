@@ -350,7 +350,10 @@ class NeuroShatterEngine:
         residuals = df.copy()
         for col in df.columns:
             if df[col].nunique(dropna=False) == 1:
-                self.patterns[col] = {"type": "constant", "value": str(df[col].iloc[0])}
+                value = df[col].iloc[0]
+                if isinstance(value, pd.Timestamp):
+                    value = value.to_pydatetime()
+                self.patterns[col] = {"type": "constant", "value": value}
                 residuals = residuals.drop(columns=[col])
                 continue
 
@@ -359,8 +362,8 @@ class NeuroShatterEngine:
                 if not diffs.empty and diffs.nunique() == 1:
                     self.patterns[col] = {
                         "type": "gradient",
-                        "start": float(df[col].iloc[0]),
-                        "step": float(diffs.iloc[0]),
+                        "start": df[col].iloc[0],
+                        "step": diffs.iloc[0],
                         "len": len(df),
                     }
                     residuals = residuals.drop(columns=[col])
