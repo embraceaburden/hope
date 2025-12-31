@@ -146,9 +146,15 @@ def run_pipeline(request: dict[str, Any]) -> dict[str, Any]:
                 )
             )
         elif step == "map_and_scramble":
+            carrier_image = _load_bytes(payload, "carrier_image_b64", "carrier_image_path")
+            if not carrier_image:
+                raise BridgeValidationError(
+                    "map_and_scramble step requires carrier_image_b64 or carrier_image_path"
+                )
             context.update(
                 geometric_map_and_scramble(
                     context["compressed_blob"],
+                    carrier_image,
                     polytope_type=options.get("polytope_type", "cube"),
                     backend=options.get("poly_backend", "latte"),
                 )
@@ -161,8 +167,8 @@ def run_pipeline(request: dict[str, Any]) -> dict[str, Any]:
                 )
             context.update(
                 embed_steganographic(
-                    context["scrambled_blob"],
-                    carrier_image,
+                    context["compressed_blob"],
+                    context["scrambled_carrier"],
                     password=options.get("stego_password", "supersecret"),
                     layers=options.get("stego_layers", 2),
                     dynamic=options.get("stego_dynamic", True),
@@ -191,7 +197,7 @@ def run_pipeline(request: dict[str, Any]) -> dict[str, Any]:
         "artifacts": {
             "patternized_blob_b64": _b64_encode(context.get("patternized_blob")),
             "compressed_blob_b64": _b64_encode(context.get("compressed_blob")),
-            "scrambled_blob_b64": _b64_encode(context.get("scrambled_blob")),
+            "scrambled_carrier_b64": _b64_encode(context.get("scrambled_carrier")),
             "embedded_image_b64": _b64_encode(context.get("embedded_image")),
             "sealed_image_b64": _b64_encode(context.get("sealed_image")),
         },

@@ -30,7 +30,7 @@ from compression import hyper_compress
 from decompress import decompress_blob
 from extract import extract_binary_data
 from job_updates import emit_job_update, set_emitter
-from map_and_scramble import geometric_map_and_scramble
+from map_and_scramble import geometric_map_and_scramble, geometric_unscramble_image
 from neuro_shatter import run_ingestion_convert, validate_and_clean
 from security import cryptographic_seal
 from storage import RedisJobStore, SqliteJobStore
@@ -786,10 +786,17 @@ def offline_map() -> Any:
         file_bytes, _ = _read_upload_bytes()
         polytope_type = request.form.get("polytope_type", "cube")
         backend = request.form.get("poly_backend", "latte")
-        result = geometric_map_and_scramble(file_bytes, polytope_type=polytope_type, backend=backend)
+        carrier_image = request.files.get("carrier")
+        carrier_bytes = carrier_image.read() if carrier_image else file_bytes
+        result = geometric_map_and_scramble(
+            file_bytes,
+            carrier_bytes,
+            polytope_type=polytope_type,
+            backend=backend,
+        )
         return jsonify(
             {
-                "scrambled_blob_b64": _b64encode_bytes(result.get("scrambled_blob")),
+                "scrambled_carrier_b64": _b64encode_bytes(result.get("scrambled_carrier")),
                 "permutation_key": result.get("permutation_key"),
                 "polytope_type": result.get("polytope_type"),
                 "backend": result.get("backend"),
@@ -1051,8 +1058,10 @@ def _run_engine_pipeline(job_id: str, job: dict[str, Any], output_path: Path) ->
             )
         elif phase_id == "map_and_scramble":
             polytope_type = options.get("polytopeType", "cube")
+            carrier_bytes = carrier_path.read_bytes()
             result = geometric_map_and_scramble(
                 context["compressed_blob"],
+                carrier_bytes,
                 polytope_type=polytope_type,
                 backend=options.get("polyBackend", "latte"),
             )
@@ -1073,8 +1082,8 @@ def _run_engine_pipeline(job_id: str, job: dict[str, Any], output_path: Path) ->
             stego_password = options.get("stegoPassword") or options.get("passphrase") or "supersecret"
             context.update(
                 embed_steganographic(
-                    context["scrambled_blob"],
-                    carrier_path.read_bytes(),
+                    context["compressed_blob"],
+                    context["scrambled_carrier"],
                     password=stego_password,
                     layers=options.get("stegoLayers", 2),
                     dynamic=options.get("stegoDynamic", True),
@@ -1082,12 +1091,18 @@ def _run_engine_pipeline(job_id: str, job: dict[str, Any], output_path: Path) ->
                     adaptive=options.get("stegoAdaptive", True),
                 )
             )
+            context["unscrambled_image"] = geometric_unscramble_image(
+                context["embedded_image"],
+                context["permutation_key"],
+            )
         elif phase_id == "seal":
+            user_data = {"permutation_key": context.get("permutation_key")}
             context.update(
                 cryptographic_seal(
-                    context["embedded_image"],
+                    context["unscrambled_image"],
                     password=options.get("passphrase"),
                     kdf_iterations=options.get("kdfIterations", 100_000),
+                    user_data=user_data,
                 )
             )
         else:
