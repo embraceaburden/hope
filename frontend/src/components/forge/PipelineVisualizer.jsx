@@ -36,6 +36,13 @@ const EXTRACT_STAGES = [
 export default function PipelineVisualizer({ job, jobType = 'embed' }) {
   const [currentStage, setCurrentStage] = useState(job?.status || 'queued');
   const stages = jobType === 'embed' ? EMBED_STAGES : EXTRACT_STAGES;
+  const geometricTelemetry = job?.geometric_telemetry || job?.geometricTelemetry || null;
+  const resolvedPolytopeType = geometricTelemetry?.polytopeType
+    || job?.options?.polytopeType
+    || job?.configuration?.polytope_type;
+  const resolvedPermutationKey = job?.geometricKey
+    || job?.pipeline_metadata?.permutation_key
+    || job?.geometric_key;
 
   useEffect(() => {
     if (job?.status) {
@@ -262,11 +269,12 @@ export default function PipelineVisualizer({ job, jobType = 'embed' }) {
         )}
 
         {/* 3D Polytope Visualization */}
-        {job.configuration?.polytope_type && ['mapping', 'embedding', 'sealing', 'completed'].includes(job.status) && (
+        {resolvedPolytopeType && ['mapping', 'embedding', 'sealing', 'completed'].includes(job.status) && (
           <div className="mt-6">
             <PolytopeVisualizer
-              polytopeType={job.configuration.polytope_type}
-              permutationKey={job.pipeline_metadata?.permutation_key}
+              polytopeType={resolvedPolytopeType}
+              permutationKey={resolvedPermutationKey}
+              geometricTelemetry={geometricTelemetry}
               isActive={['mapping', 'embedding'].includes(job.status)}
             />
           </div>
