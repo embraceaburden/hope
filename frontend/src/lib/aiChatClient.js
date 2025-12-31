@@ -1,5 +1,5 @@
 const DEFAULT_OLLAMA_URL = import.meta.env.VITE_OLLAMA_URL || 'http://localhost:11434';
-const DEFAULT_OLLAMA_MODEL = import.meta.env.VITE_OLLAMA_MODEL || 'llama3.2';
+const DEFAULT_OLLAMA_MODEL = import.meta.env.VITE_OLLAMA_MODEL || 'blaifa/InternVL3:8b-Q4_K_M';
 const DEFAULT_TIMEOUT_MS = 15000;
 const DEFAULT_MAX_RETRIES = 2;
 const DEFAULT_BACKOFF_MS = 400;

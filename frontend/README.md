@@ -33,7 +33,7 @@ Configure Ollama with:
 
 ```
 VITE_OLLAMA_URL=http://localhost:11434
-VITE_OLLAMA_MODEL=llama3.2
+VITE_OLLAMA_MODEL=blaifa/InternVL3:8b-Q4_K_M
 ```
 
 When base44 is unavailable or unhealthy, the UI falls back to Ollama and shows a hint in the chat panel.
@@ -52,7 +52,7 @@ To check that Ollama has the configured model pulled, ensure:
 
 ```
 VITE_OLLAMA_URL=http://localhost:11434
-VITE_OLLAMA_MODEL=llama3.2
+VITE_OLLAMA_MODEL=blaifa/InternVL3:8b-Q4_K_M
 ```
 
 The client will query `/api/tags` on the Ollama host to verify the model is available.
