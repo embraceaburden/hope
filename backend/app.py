@@ -318,6 +318,34 @@ def _offline_error(exc: Exception, fallback: str) -> tuple[Any, int]:
         return _error_response(str(exc), 400)
     return _error_response(fallback, 500)
 
+def _resolve_job_id() -> str | None:
+    if request.is_json:
+        payload = request.get_json(silent=True) or {}
+        job_id = payload.get("jobId")
+        if job_id:
+            return job_id
+    return request.form.get("jobId") or request.args.get("jobId")
+
+def _emit_restoration_metrics(job_id: str | None, result: dict[str, Any]) -> None:
+    if not job_id:
+        return
+    if not result.get("rs_healing_triggered"):
+        return
+    metrics = result.get("restoration_metrics")
+    if not isinstance(metrics, dict):
+        return
+    emit_job_update(job_id, {"jobId": job_id, "restoration_metrics": metrics})
+
+def _build_verify_response(result: dict[str, Any]) -> Any:
+    return jsonify(
+        {
+            "verified_data": result.get("verified_data"),
+            "restoration": result.get("restoration"),
+            "healed_payload_b64": _b64encode_bytes(result.get("healed_payload")),
+            "restoration_metrics": result.get("restoration_metrics"),
+        }
+    )
+
 def _hash_file(path: Path, chunk_size: int = 1024 * 1024) -> str:
     hasher = hashlib.sha256()
     with path.open("rb") as handle:
@@ -587,6 +615,16 @@ def download_extracted_file(job_id: str, file_name: str) -> Any:
     if not output_path or not Path(output_path).exists():
         return _error_response("File missing on disk", 404)
     return send_file(output_path, as_attachment=True, download_name=file_name)
+
+@app.route("/api/verify", methods=["POST"])
+def api_verify() -> Any:
+    try:
+        payload_bytes, _ = _read_upload_bytes()
+        result = verify_and_restore(payload_bytes)
+        _emit_restoration_metrics(_resolve_job_id(), result)
+        return _build_verify_response(result)
+    except Exception as exc:
+        return _offline_error(exc, "Verification failed")
 
 
 @app.route("/api/scan", methods=["POST"])
@@ -920,7 +958,8 @@ def offline_verify() -> Any:
     try:
         payload_bytes, _ = _read_upload_bytes()
         result = verify_and_restore(payload_bytes)
-        return jsonify(result)
+        _emit_restoration_metrics(_resolve_job_id(), result)
+        return _build_verify_response(result)
     except Exception as exc:
         return _offline_error(exc, "Offline verification failed")
 
