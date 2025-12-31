@@ -13,6 +13,7 @@ import pandas as pd
 import zstandard as zstd
 from pydantic import BaseModel, Field, ValidationError, create_model
 from PIL import Image, UnidentifiedImageError
+from reedsolo import RSCodec
 
 try:
     from ydata_profiling import ProfileReport
@@ -368,13 +369,21 @@ class NeuroShatterEngine:
 
     def jzpack_finalize(self, data: Any, report: Dict[str, Any]) -> bytes:
         """Stage 4: JZPack (Zstd + MessagePack)."""
+        payload_bytes = msgpack.packb(data, use_bin_type=True)
+        rs_parity_ratio = 0.5
+        rs_block_size = len(payload_bytes)
+        rs_parity_bytes = int(rs_block_size * rs_parity_ratio) if rs_block_size else 0
+        if rs_parity_bytes:
+            payload_bytes = RSCodec(rs_parity_bytes).encode(payload_bytes)
         optimal_package = {
             "metadata": {
                 "engine_v": "2025.NeuroShatter",
                 "patterns": self.patterns,
                 "schema_report": report,
+                "rs_parity_ratio": rs_parity_ratio,
+                "rs_block_size": rs_block_size,
             },
-            "payload": data,
+            "payload": payload_bytes,
         }
         packed = msgpack.packb(optimal_package, use_bin_type=True)
         cctx = zstd.ZstdCompressor(level=3)

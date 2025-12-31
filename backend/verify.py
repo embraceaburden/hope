@@ -1,12 +1,16 @@
 # Data verification and restoration using Pydantic, ScaleNx, Inpaint
 from typing import Any
 
-from preparation import DataPackage
-from pydantic import ValidationError
+import io
+import json
+import logging
 
 import numpy as np
 from PIL import Image
-import io
+from pydantic import ValidationError
+from reedsolo import RSCodec, ReedSolomonError
+
+from preparation import DataPackage
 
 def scalenx_inpaint(image_bytes: bytes) -> bytes:
 	"""
@@ -30,18 +34,34 @@ def scalenx_inpaint(image_bytes: bytes) -> bytes:
 	out_img.save(buf, format="PNG")
 	return buf.getvalue()
 
+def _rs_heal_payload(payload_bytes: bytes, parity_ratio: float = 0.5) -> bytes:
+	if not payload_bytes:
+		return payload_bytes
+	block_size = int(len(payload_bytes) / (1 + parity_ratio))
+	parity_bytes = len(payload_bytes) - block_size
+	if parity_bytes <= 0:
+		return payload_bytes
+	try:
+		decoded, _, _ = RSCodec(parity_bytes).decode(payload_bytes)
+		return bytes(decoded)
+	except ReedSolomonError as exc:
+		raise ValueError(f"RS decode failed: {exc}") from exc
+
 def verify_and_restore(restored_payload: bytes) -> dict:
 
 	"""
 	Verifies and restores the data using Pydantic, ScaleNx, and Inpaint.
 	Returns a dict with the final verified data, restoration info, and error details if any.
 	"""
-	import json
-	import logging
 	try:
 		# Attempt to validate the restored payload as a DataPackage
 		if isinstance(restored_payload, bytes):
-			restored_dict = json.loads(restored_payload.decode("utf-8"))
+			try:
+				restored_dict = json.loads(restored_payload.decode("utf-8"))
+			except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+				logging.warning(f"JSON decode failed, attempting RS healing: {exc}")
+				healed_payload = _rs_heal_payload(restored_payload)
+				restored_dict = json.loads(healed_payload.decode("utf-8"))
 		else:
 			restored_dict = restored_payload
 		package = DataPackage(**restored_dict)
