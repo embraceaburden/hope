@@ -55,6 +55,9 @@ def _rs_heal_payload(payload_bytes: bytes, parity_ratio: float = 0.5) -> tuple[b
 		return payload_bytes, metrics
 	if parity_ratio <= 0:
 		return payload_bytes, metrics
+		return payload_bytes
+	if parity_ratio <= 0:
+		return payload_bytes
 	block_size = int(len(payload_bytes) / (1 + parity_ratio))
 	parity_bytes = len(payload_bytes) - block_size
 	if parity_bytes <= 0:
@@ -102,6 +105,7 @@ def verify_and_restore(restored_payload: bytes) -> dict:
 				restoration_metrics["parity_exhaustion"] = max(
 					restoration_metrics["parity_exhaustion"], rs_metrics["parity_exhaustion"]
 				)
+				healed_payload = _rs_heal_payload(restored_payload, parity_ratio=parity_ratio)
 				restored_dict = json.loads(healed_payload.decode("utf-8"))
 				parity_ratio = _extract_parity_ratio(restored_dict)
 		else:
@@ -134,6 +138,7 @@ def verify_and_restore(restored_payload: bytes) -> dict:
 				restoration_metrics["parity_exhaustion"] = max(
 					restoration_metrics["parity_exhaustion"], rs_metrics["parity_exhaustion"]
 				)
+				healed_payload = _rs_heal_payload(repaired_bytes, parity_ratio=parity_ratio)
 				repaired_dict = json.loads(healed_payload.decode("utf-8"))
 			package = DataPackage(**repaired_dict)
 			healed_payload = json.dumps(package.dict()).encode("utf-8")

@@ -44,13 +44,20 @@ const POLYTOPE_CONFIGS = {
   }
 };
 
-export default function PolytopeVisualizer({ polytopeType = 'cube', permutationKey = null, isActive = false }) {
+export default function PolytopeVisualizer({
+  polytopeType = 'cube',
+  permutationKey = null,
+  isActive = false,
+  geometricTelemetry = null
+}) {
   const mountRef = useRef(null);
   const sceneRef = useRef(null);
   const rendererRef = useRef(null);
   const animationRef = useRef(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const telemetryPolytopeType = geometricTelemetry?.polytopeType || polytopeType;
+  const telemetryVector = geometricTelemetry?.f_vector || null;
 
   useEffect(() => {
     if (!mountRef.current) return;
@@ -89,7 +96,7 @@ export default function PolytopeVisualizer({ polytopeType = 'cube', permutationK
     scene.add(pointLight2);
 
     // Create polytope
-    const config = POLYTOPE_CONFIGS[polytopeType] || POLYTOPE_CONFIGS.cube;
+    const config = POLYTOPE_CONFIGS[telemetryPolytopeType] || POLYTOPE_CONFIGS.cube;
     const polytopeGroup = new THREE.Group();
 
     // Vertices (spheres)
@@ -195,7 +202,7 @@ export default function PolytopeVisualizer({ polytopeType = 'cube', permutationK
       }
       renderer.dispose();
     };
-  }, [polytopeType, isActive]);
+  }, [telemetryPolytopeType, isActive]);
 
   const toggleFullscreen = () => {
     setIsFullscreen(!isFullscreen);
@@ -217,7 +224,7 @@ export default function PolytopeVisualizer({ polytopeType = 'cube', permutationK
             </CardTitle>
             <div className="flex items-center gap-2 mt-2">
               <Badge className="bg-[var(--color-gold)]/20 text-[var(--color-pine-teal)]">
-                {polytopeType.replace('_', ' ')}
+                {telemetryPolytopeType.replace('_', ' ')}
               </Badge>
               {permutationKey && (
                 <Badge variant="outline" className="text-xs font-mono">
@@ -256,9 +263,14 @@ export default function PolytopeVisualizer({ polytopeType = 'cube', permutationK
         <div className="absolute bottom-4 left-4 right-4 p-3 rounded-lg glass-panel text-xs text-[var(--color-pine-teal)]">
           <p className="font-semibold mb-1">Scrambling Pattern</p>
           <p className="text-gray-600">
-            This {polytopeType.replace('_', ' ')} generates unique permutation sequences for data scrambling. 
+            This {telemetryPolytopeType.replace('_', ' ')} generates unique permutation sequences for data scrambling. 
             Each vertex represents a transformation point in the encoding space.
           </p>
+          {telemetryVector && (
+            <p className="text-gray-500 mt-1 font-mono">
+              f-vector: {Array.isArray(telemetryVector) ? telemetryVector.join(', ') : telemetryVector}
+            </p>
+          )}
         </div>
       </CardContent>
     </Card>
