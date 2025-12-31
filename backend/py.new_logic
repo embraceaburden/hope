@@ -1,0 +1,115 @@
+import json
+import zstandard as zstd
+import msgpack
+import pandas as pd
+from datetime import datetime
+from typing import Any, Dict, List, Optional
+from pydantic import BaseModel, Field, create_model
+from ydata_profiling import ProfileReport  # <--- The New Diagnostic Brain
+
+class NeuroShatterEngine:
+    """
+    Stage 1: ydata-profiling (Deep Diagnostic)
+    Stage 2: Pydantic (Precision Cleaner)
+    Stage 3: Neuro-Shatter (Pattern Extraction - Constants/Gradients)
+    Stage 4: JZPack (Zstd + MessagePack Delivery)
+    """
+    
+    def __init__(self):
+        self.patterns = {}
+        self.model = None
+
+    def profile_and_build_model(self, df: pd.DataFrame):
+        """Stage 1: ydata-profiling Diagnostic."""
+        # 'minimal=True' keeps it fast for the pipeline
+        profile = ProfileReport(df, minimal=True, progress_bar=False)
+        
+        # The "Fruity Pebbles" Bridge: JSON string to Dictionary
+        report_dict = json.loads(profile.to_json())
+        
+        fields = {}
+        # ydata-profiling stores data in the 'variables' key
+        for col_name, stats in report_dict['variables'].items():
+            dtype = str(stats['type']).lower()
+            
+            # Precise mapping for the Pydantic Cleaner
+            type_map = {
+                'numeric': float, 
+                'integer': int,
+                'categorical': str, 
+                'datetime': datetime,
+                'boolean': bool
+            }
+            fields[col_name] = (Optional[type_map.get(dtype, str)], Field(None))
+            
+        self.model = create_model('GoldenRecord', **fields)
+        return report_dict
+
+    def shatter_patterns(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Stage 2: Pattern Extraction (The 1000x Logic)."""
+        residuals = df.copy()
+        for col in df.columns:
+            # Constant Detection
+            if df[col].nunique() == 1:
+                self.patterns[col] = {"type": "constant", "value": str(df[col].iloc[0])}
+                residuals = residuals.drop(columns=[col])
+                
+            # Gradient/Sequence Detection
+            elif pd.api.types.is_numeric_dtype(df[col]):
+                diffs = df[col].diff().dropna()
+                if not diffs.empty and diffs.nunique() == 1:
+                    self.patterns[col] = {
+                        "type": "gradient",
+                        "start": float(df[col].iloc[0]),
+                        "step": float(diffs.iloc[0]),
+                        "len": len(df)
+                    }
+                    residuals = residuals.drop(columns=[col])
+        return residuals
+
+    def clean_with_precision(self, df: pd.DataFrame) -> List[Dict]:
+        """Stage 3: Pydantic Precision Cleaning."""
+        cleaned_records = []
+        raw_data = df.to_dict(orient='records')
+        for record in raw_data:
+            try:
+                # Pydantic coerces and validates
+                clean_obj = self.model(**record)
+                cleaned_records.append(clean_obj.model_dump())
+            except Exception:
+                continue 
+        return cleaned_records
+
+    def jzpack_finalize(self, data: Any, report: Dict) -> bytes:
+        """Stage 4: JZPack (Zstd + MessagePack)."""
+        optimal_package = {
+            "metadata": {
+                "engine_v": "2025.NeuroShatter",
+                "patterns": self.patterns,
+                "schema_report": report
+            },
+            "payload": data
+        }
+        packed = msgpack.packb(optimal_package, use_bin_type=True)
+        cctx = zstd.ZstdCompressor(level=3)
+        return cctx.compress(packed)
+
+# --- EXECUTION ---
+if __name__ == "__main__":
+    # Test Data
+    raw_df = pd.DataFrame({
+        "id": range(500, 1500), 
+        "branch": ["North_Station"] * 1000, 
+        "reading": [10.5, "11.2", None] * 333 + [10.5]
+    })
+
+    engine = NeuroShatterEngine()
+    
+    # Run the Flow
+    diag_report = engine.profile_and_build_model(raw_df)
+    residual_data = engine.shatter_patterns(raw_df)
+    clean_payload = engine.clean_with_precision(residual_data)
+    final_blob = engine.jzpack_finalize(clean_payload, diag_report)
+
+    print(f"ydata Diagnostic Complete.")
+    print(f"JZPack Delivered: {len(final_blob) / 1024:.2f} KB")

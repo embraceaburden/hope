@@ -13,9 +13,11 @@ import json
 from pathlib import Path
 from typing import Any
 
-from preparation import validate_and_clean
-from conversion import serialize_and_patternize
-from compression import hyper_compress
+from neuro_shatter import (
+    hyper_compress,
+    run_ingestion_convert,
+    validate_and_clean,
+)
 from map_and_scramble import geometric_map_and_scramble
 from stego_engine import embed_steganographic
 from security import cryptographic_seal
@@ -131,8 +133,11 @@ def run_pipeline(request: dict[str, Any]) -> dict[str, Any]:
             })
             context["package"] = package
         elif step == "convert":
-            context.update(serialize_and_patternize(context["package"]))
+            package = context["package"]
+            context.update(run_ingestion_convert(package, options))
         elif step == "compress":
+            if context.get("compressed_blob") is not None:
+                continue
             context.update(
                 hyper_compress(
                     context["patternized_blob"],
@@ -194,6 +199,9 @@ def run_pipeline(request: dict[str, Any]) -> dict[str, Any]:
             "compression_ratio": context.get("compression_ratio"),
             "permutation_key": context.get("permutation_key"),
             "crypto_metadata": context.get("crypto_metadata"),
+            "neuro_shatter_report": context.get("neuro_shatter_report"),
+            "neuro_shatter_patterns": context.get("neuro_shatter_patterns"),
+            "neuro_shatter_records": context.get("neuro_shatter_records"),
         },
     }
 
