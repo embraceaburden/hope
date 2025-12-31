@@ -244,7 +244,14 @@ def _update_job(job_id: str, updates: dict[str, Any]) -> None:
         if status in {"completed", "error"}:
             redis_store.archive_job(job_id)
 
-    emit_job_update(job_id, job)
+    payload = dict(job)
+    telemetry = job.get("geometricTelemetry")
+    if telemetry:
+        payload["geometric_telemetry"] = {
+            "f_vector": telemetry.get("fVector"),
+            "polytopeType": telemetry.get("polytopeType"),
+        }
+    emit_job_update(job_id, payload)
 
 
 def _build_progress() -> dict[str, int]:
@@ -1004,12 +1011,24 @@ def _run_engine_pipeline(job_id: str, job: dict[str, Any], output_path: Path) ->
                 )
             )
         elif phase_id == "map_and_scramble":
-            context.update(
-                geometric_map_and_scramble(
-                    context["compressed_blob"],
-                    polytope_type=options.get("polytopeType", "cube"),
-                    backend=options.get("polyBackend", "latte"),
-                )
+            polytope_type = options.get("polytopeType", "cube")
+            result = geometric_map_and_scramble(
+                context["compressed_blob"],
+                polytope_type=polytope_type,
+                backend=options.get("polyBackend", "latte"),
+            )
+            context.update(result)
+            f_vector = result.get("f_vector")
+            permutation_key = result.get("permutation_key")
+            _update_job(
+                job_id,
+                {
+                    "geometricTelemetry": {
+                        "fVector": f_vector,
+                        "polytopeType": polytope_type,
+                    },
+                    "geometricKey": permutation_key,
+                },
             )
         elif phase_id == "stego_embed":
             stego_password = options.get("stegoPassword") or options.get("passphrase") or "supersecret"
