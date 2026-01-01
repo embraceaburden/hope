@@ -74,7 +74,7 @@ coverage.xml
 *.cover
 .hypothesis/
 .pytest_cache/
-
+backend/uploads/**
 # --- IDEs & OS ---
 .vscode/
 .idea/

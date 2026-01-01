@@ -83,7 +83,7 @@ def validate_socketio(base_url: str, job_id: str, socket_token: str) -> dict:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Validate Snowflake API endpoints")
-    parser.add_argument("--base-url", default="http://localhost:5000")
+    parser.add_argument("--base-url", default="http://127.0.0.1:5000")
     parser.add_argument("--timeout", type=int, default=DEFAULT_TIMEOUT_S)
     parser.add_argument("--passphrase", default="validation-pass")
     parser.add_argument(

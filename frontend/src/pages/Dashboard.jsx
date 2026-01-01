@@ -39,7 +39,7 @@ export default function Dashboard() {
 
   const [config] = useState(() => ({
     mode: 'online',
-    backend_url: import.meta.env.VITE_FORGE_BACKEND_URL || 'http://localhost:5000',
+    backend_url: import.meta.env.VITE_FORGE_BACKEND_URL || 'http://127.0.0.1:5000',
     theme: 'light',
     ai_orchestrator_enabled: true
   }));
@@ -180,7 +180,7 @@ export default function Dashboard() {
         return;
       }
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3000);
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
       try {
         const response = await fetch(`${config.backend_url}/`, { signal: controller.signal });
         clearTimeout(timeoutId);
@@ -209,7 +209,7 @@ export default function Dashboard() {
     };
 
     runCheck();
-    const intervalId = setInterval(runCheck, 5000);
+    const intervalId = setInterval(runCheck, 30000);
 
     const handleOnline = () => runCheck();
     const handleOffline = () => {

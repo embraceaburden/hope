@@ -13,7 +13,7 @@ import requests
 
 @dataclass
 class ForgeApiClient:
-    base_url: str = "http://localhost:5000"
+    base_url: str = "http://127.0.0.1:5000"
 
     def _url(self, path: str) -> str:
         return f"{self.base_url.rstrip('/')}{path}"

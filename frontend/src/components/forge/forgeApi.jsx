@@ -1,4 +1,4 @@
-const BASE_URL = import.meta.env.VITE_FORGE_BACKEND_URL || 'http://localhost:5000';
+const BASE_URL = import.meta.env.VITE_FORGE_BACKEND_URL || 'http://127.0.0.1:5000';
 
 const parseResponseBody = async (response) => {
   const text = await response.text();

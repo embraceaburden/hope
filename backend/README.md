@@ -115,10 +115,10 @@ Configuration is controlled via environment variables (see `.env.example`).
 
 ```bash
 # Health check
-curl http://localhost:5000/
+curl http://127.0.0.1:5000/
 
 # Encapsulation (multipart)
-curl -X POST http://localhost:5000/api/encapsulate \
+curl -X POST http://127.0.0.1:5000/api/encapsulate \
   -F "target_files=@file1.txt" \
   -F "carrier_image=@image.png" \
   -F 'options={"compressionMode":"lossless","passphrase":"test123"}'
@@ -142,7 +142,7 @@ pip install -r requirements.txt
 ## WebSocket Usage
 
 ```javascript
-const socket = io("http://localhost:5000", {
+const socket = io("http://127.0.0.1:5000", {
   auth: { token: "your-shared-socket-token" }
 });
 

@@ -49,7 +49,7 @@ export default function Layout({ children, currentPageName }) {
         onClick={() => setSidebarOpen(!sidebarOpen)}
         className="fixed left-4 top-4 z-50 p-2 rounded-lg transition-all"
         style={{ 
-          background: sidebarOpen ? 'transparent' : 'linear-gradient(135deg, var(--color-gold) 0%, var(--color-copper) 100%)',
+          background: sidebarOpen ? 'transparent' : 'linear-gradient(135deg, var(--color-gold) 50%, var(--color-copper) 100%)',
           boxShadow: sidebarOpen ? 'none' : '0 4px 12px rgba(188, 128, 77, 0.3)'
         }}
       >

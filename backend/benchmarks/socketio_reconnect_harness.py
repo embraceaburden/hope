@@ -8,7 +8,7 @@ import socketio
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Socket.IO reconnect harness")
-    parser.add_argument("--base-url", default="http://localhost:5000")
+    parser.add_argument("--base-url", default="http://127.0.0.1:5000")
     parser.add_argument(
         "--socket-token",
         default=os.environ.get("FORGE_SOCKET_TOKEN"),

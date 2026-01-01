@@ -1,15 +1,20 @@
 const DEFAULT_OLLAMA_URL = import.meta.env.VITE_OLLAMA_URL || 'http://localhost:11434';
-const DEFAULT_OLLAMA_MODEL = import.meta.env.VITE_OLLAMA_MODEL || 'blaifa/InternVL3:8b-Q4_K_M';
-const DEFAULT_TIMEOUT_MS = 15000;
+const DEFAULT_OLLAMA_MODEL = import.meta.env.VITE_OLLAMA_MODEL || 'granite3.3:2b';
+
+// 🛑 TIMEOUT FIX: 300,000ms = 5 Minutes. Enough time for heavy vision tasks.
+const DEFAULT_TIMEOUT_MS = 300000; 
+
 const DEFAULT_MAX_RETRIES = 2;
 const DEFAULT_BACKOFF_MS = 400;
 
+// Update: Now includes images if present in the message object
 const toMessagePayload = (messages) =>
   messages
-    .filter((message) => message?.role && message?.content)
+    .filter((message) => message?.role && (message?.content || message?.images))
     .map((message) => ({
       role: message.role,
-      content: message.content
+      content: message.content,
+      images: message.images ? message.images : undefined
     }));
 
 const parseResponseBody = async (response) => {
@@ -23,7 +28,6 @@ const parseResponseBody = async (response) => {
 };
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
 const isTransientStatus = (status) => [408, 429, 500, 502, 503, 504].includes(status);
 
 const createAbortController = (timeoutMs, externalSignal) => {
@@ -52,27 +56,8 @@ const createAbortController = (timeoutMs, externalSignal) => {
 };
 
 const logProviderMetric = ({ provider, latencyMs, ok, attempts, error }) => {
-  const payload = {
-    provider,
-    latencyMs,
-    ok,
-    attempts,
-    error
-  };
-  if (ok) {
-    console.info('[AI Telemetry]', payload);
-  } else {
-    console.warn('[AI Telemetry]', payload);
-  }
-};
-
-const fetchWithTimeout = async (url, options = {}, timeoutMs = DEFAULT_TIMEOUT_MS) => {
-  const { signal, cleanup } = createAbortController(timeoutMs, options?.signal);
-  try {
-    return await fetch(url, { ...options, signal });
-  } finally {
-    cleanup();
-  }
+  const payload = { provider, latencyMs, ok, attempts, error };
+  if (!ok) console.warn('[AI Telemetry]', payload);
 };
 
 const fetchWithRetry = async (url, options, { timeoutMs, maxRetries, backoffMs } = {}) => {
@@ -103,7 +88,6 @@ const fetchWithRetry = async (url, options, { timeoutMs, maxRetries, backoffMs }
       throw { error, attempts: attempt + 1 };
     }
   }
-
   throw new Error('Retry attempts exhausted');
 };
 
@@ -114,12 +98,23 @@ export async function sendOllamaChat({
   signal,
   timeoutMs = DEFAULT_TIMEOUT_MS,
   maxRetries = DEFAULT_MAX_RETRIES,
-  backoffMs = DEFAULT_BACKOFF_MS
+  backoffMs = DEFAULT_BACKOFF_MS,
+  images = [] // Accept images argument
 } = {}) {
   const endpoint = `${baseUrl || DEFAULT_OLLAMA_URL}/api/chat`;
   const start = performance?.now ? performance.now() : Date.now();
   let response;
   let attempts = 1;
+
+  // Handle attaching images to the LAST user message if provided separately
+  let payloadMessages = toMessagePayload(messages || []);
+  if (images && images.length > 0 && payloadMessages.length > 0) {
+     const lastMsg = payloadMessages[payloadMessages.length - 1];
+     if (lastMsg.role === 'user') {
+         lastMsg.images = images;
+     }
+  }
+
   try {
     const result = await fetchWithRetry(
       endpoint,
@@ -127,8 +122,8 @@ export async function sendOllamaChat({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: model || DEFAULT_OLLAMA_MODEL,
-          messages: toMessagePayload(messages || []),
+          model: model || DEFAULT_OLLAMA_MODEL ,
+          messages: payloadMessages,
           stream: false
         }),
         signal
@@ -156,62 +151,23 @@ export async function sendOllamaChat({
       (typeof data === 'string' ? data : null) ||
       `Ollama request failed with status ${response.status}`;
     const latencyMs = Math.round((performance?.now ? performance.now() : Date.now()) - start);
-    logProviderMetric({
-      provider: 'ollama',
-      latencyMs,
-      ok: false,
-      attempts,
-      error: errorMessage
-    });
+    logProviderMetric({ provider: 'ollama', latencyMs, ok: false, attempts, error: errorMessage });
     throw new Error(errorMessage);
   }
 
   if (data && typeof data === 'object' && data.message?.content) {
     const latencyMs = Math.round((performance?.now ? performance.now() : Date.now()) - start);
-    logProviderMetric({
-      provider: 'ollama',
-      latencyMs,
-      ok: true,
-      attempts
-    });
+    logProviderMetric({ provider: 'ollama', latencyMs, ok: true, attempts });
     return data.message.content;
   }
-  const latencyMs = Math.round((performance?.now ? performance.now() : Date.now()) - start);
-  logProviderMetric({
-    provider: 'ollama',
-    latencyMs,
-    ok: true,
-    attempts
-  });
-
+  
   return typeof data === 'string' ? data : '';
-}
-
-export async function checkOllamaModelReady({
-  baseUrl,
-  model,
-  timeoutMs = DEFAULT_TIMEOUT_MS
-} = {}) {
-  const endpoint = `${baseUrl || DEFAULT_OLLAMA_URL}/api/tags`;
-  const response = await fetchWithTimeout(endpoint, { method: 'GET' }, timeoutMs);
-  if (!response.ok) {
-    throw new Error(`Ollama tags request failed with status ${response.status}`);
-  }
-  const data = await parseResponseBody(response);
-  const models = Array.isArray(data?.models) ? data.models : [];
-  const targetModel = model || DEFAULT_OLLAMA_MODEL;
-  const available = models.some((entry) => entry?.name === targetModel);
-  return {
-    available,
-    model: targetModel,
-    models: models.map((entry) => entry?.name).filter(Boolean)
-  };
 }
 
 export function getOllamaConfig() {
   return {
-    baseUrl: DEFAULT_OLLAMA_URL,
-    model: DEFAULT_OLLAMA_MODEL,
+    baseUrl: import.meta.env.VITE_OLLAMA_URL || DEFAULT_OLLAMA_URL,
+    model: import.meta.env.VITE_OLLAMA_MODEL || DEFAULT_OLLAMA_MODEL,
     timeoutMs: DEFAULT_TIMEOUT_MS
   };
 }

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { io } from 'socket.io-client';
 
-const DEFAULT_BACKEND_URL = import.meta.env.VITE_FORGE_BACKEND_URL || 'http://localhost:5000';
+const DEFAULT_BACKEND_URL = import.meta.env.VITE_FORGE_BACKEND_URL || 'http://127.0.0.1:5000';
 const DEFAULT_SOCKET_TOKEN = import.meta.env.VITE_FORGE_SOCKET_TOKEN;
 const MAX_RECONNECT_ATTEMPTS = 10;
 const BASE_RECONNECT_DELAY_MS = 1000;
@@ -43,7 +43,9 @@ export function useWebSocket(backendUrl = DEFAULT_BACKEND_URL, socketToken) {
       reconnectionDelay: BASE_RECONNECT_DELAY_MS,
       reconnectionDelayMax: MAX_RECONNECT_DELAY_MS,
       randomizationFactor: RECONNECT_JITTER,
-      auth: { token: resolvedToken }
+      auth: { token: resolvedToken },
+      pingInterval: 25000,
+      pingTimeout: 60000
     });
 
     const handleConnect = () => {

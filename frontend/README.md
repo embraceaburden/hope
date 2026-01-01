@@ -15,7 +15,7 @@ npm run dev
 Create a `.env` file to point the UI at the Forge backend:
 
 ```
-VITE_FORGE_BACKEND_URL=http://localhost:5000
+VITE_FORGE_BACKEND_URL=http://127.0.0.1:5000
 VITE_FORGE_SOCKET_TOKEN=your-shared-socket-token
 ```
 
@@ -33,7 +33,7 @@ Configure Ollama with:
 
 ```
 VITE_OLLAMA_URL=http://localhost:11434
-VITE_OLLAMA_MODEL=blaifa/InternVL3:8b-Q4_K_M
+VITE_OLLAMA_MODEL=granite3.3:2b
 ```
 
 When base44 is unavailable or unhealthy, the UI falls back to Ollama and shows a hint in the chat panel.
@@ -52,7 +52,7 @@ To check that Ollama has the configured model pulled, ensure:
 
 ```
 VITE_OLLAMA_URL=http://localhost:11434
-VITE_OLLAMA_MODEL=blaifa/InternVL3:8b-Q4_K_M
+VITE_OLLAMA_MODEL=granite3.3:2b
 ```
 
 The client will query `/api/tags` on the Ollama host to verify the model is available.

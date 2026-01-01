@@ -15,18 +15,16 @@ export default function AIOrchestrator({ onJobCreate, onConfigUpdate }) {
     x: typeof window !== 'undefined' ? window.innerWidth - 420 : 0,
     y: 20
   }));
-  const [conversation, setConversation] = useState(null);
+  
   const [messages, setMessages] = useState([]);
   const [inputValue, setInputValue] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
-  const [uploadedFiles, setUploadedFiles] = useState([]);
-  const [provider, setProvider] = useState('ollama');
+  const [uploadedFiles, setUploadedFiles] = useState([]); // Stores Base64 for Ollama
+  
   const [providerHealth, setProviderHealth] = useState({
-    base44: { status: 'unknown', checkedAt: null, error: null },
     ollama: { status: 'unknown', checkedAt: null, error: null }
   });
-  const [fallbackNotice, setFallbackNotice] = useState(null);
-  const baseClient = typeof window !== 'undefined' ? window.base44 : null;
+
   const ollamaConfig = getOllamaConfig();
   
   const messagesEndRef = useRef(null);
@@ -35,68 +33,28 @@ export default function AIOrchestrator({ onJobCreate, onConfigUpdate }) {
   const isDragging = useRef(false);
   const dragOffset = useRef({ x: 0, y: 0 });
 
-  const isBase44Available = Boolean(baseClient?.agents?.createConversation);
-  const base44Healthy = providerHealth.base44?.status === 'healthy';
-  const ollamaHealthy = providerHealth.ollama?.status === 'healthy';
-
-  const logProviderMetric = ({ providerName, latencyMs, ok, error }) => {
-    const payload = {
-      provider: providerName,
-      latencyMs,
-      ok,
-      error
-    };
-    if (ok) {
-      console.info('[AI Telemetry]', payload);
-    } else {
-      console.warn('[AI Telemetry]', payload);
-    }
-  };
-
-  // Initialize conversation
-  useEffect(() => {
-    setProvider(base44Healthy ? 'base44' : 'ollama');
-    initConversation();
-  }, [base44Healthy, isBase44Available]);
-
-  useEffect(() => {
-    setProviderHealth((prev) => ({
-      ...prev,
-      base44: {
-        status: isBase44Available ? prev.base44.status : 'unavailable',
-        checkedAt: new Date().toISOString(),
-        error: isBase44Available ? prev.base44.error : 'Base44 client not detected.'
-      }
-    }));
-  }, [isBase44Available]);
-
-  useEffect(() => {
-    if (base44Healthy) {
-      setFallbackNotice(null);
-    }
-  }, [base44Healthy]);
-
+  // 1. Health Check Loop (Ollama Only)
   useEffect(() => {
     let isMounted = true;
     const refreshHealth = async () => {
       try {
-        const data = await forgeApi.aiHealth();
+        // If forgeApi.aiHealth() checks backend, keep it. 
+        // Otherwise, we assume Ollama is generally reachable if the app loads.
+        const data = await forgeApi.aiHealth(); 
         const ollamaStatus = data?.providers?.ollama?.status || 'unknown';
+        
         if (isMounted) {
           setProviderHealth((prev) => ({
-            ...prev,
             ollama: {
               status: ollamaStatus,
               checkedAt: new Date().toISOString(),
-              error: data?.providers?.ollama?.error || null,
-              latencyMs: data?.providers?.ollama?.latencyMs ?? null
+              error: data?.providers?.ollama?.error || null
             }
           }));
         }
       } catch (error) {
         if (isMounted) {
           setProviderHealth((prev) => ({
-            ...prev,
             ollama: {
               status: 'unhealthy',
               checkedAt: new Date().toISOString(),
@@ -106,76 +64,31 @@ export default function AIOrchestrator({ onJobCreate, onConfigUpdate }) {
         }
       }
     };
+    
+    // Initial check and interval
     refreshHealth();
     const intervalId = setInterval(refreshHealth, 30000);
+    
+    // Set Initial Welcome Message
+    setMessages([
+      {
+        role: 'system',
+        content: `Sentry Online. Connected to ${ollamaConfig.model}.`
+      }
+    ]);
+
     return () => {
       isMounted = false;
       clearInterval(intervalId);
     };
   }, []);
 
-  const initConversation = async () => {
-    if (!isBase44Available) {
-      setMessages([
-        {
-          role: 'assistant',
-          content: `Forge Intelligence is running locally via Ollama (${ollamaConfig.model}).`
-        }
-      ]);
-      return;
-    }
-    try {
-      const start = performance?.now ? performance.now() : Date.now();
-      const conv = await baseClient.agents.createConversation({
-        agent_name: 'forge_orchestrator',
-        metadata: {
-          name: 'Pipeline Session',
-          session_start: new Date().toISOString()
-        }
-      });
-      const latencyMs = Math.round((performance?.now ? performance.now() : Date.now()) - start);
-      logProviderMetric({ providerName: 'base44', latencyMs, ok: true });
-      setProviderHealth((prev) => ({
-        ...prev,
-        base44: { status: 'healthy', checkedAt: new Date().toISOString(), error: null }
-      }));
-      setConversation(conv);
-      setMessages(conv.messages || []);
-    } catch (error) {
-      console.error('Failed to initialize conversation:', error);
-      logProviderMetric({
-        providerName: 'base44',
-        latencyMs: null,
-        ok: false,
-        error: error.message
-      });
-      setProviderHealth((prev) => ({
-        ...prev,
-        base44: { status: 'unhealthy', checkedAt: new Date().toISOString(), error: error.message }
-      }));
-    }
-  };
-
-  // Subscribe to conversation updates
-  useEffect(() => {
-    if (!conversation?.id) return;
-
-    if (!isBase44Available) return;
-
-    const unsubscribe = baseClient.agents.subscribeToConversation(conversation.id, (data) => {
-      setMessages(data.messages);
-      setIsProcessing(false);
-    });
-
-    return () => unsubscribe();
-  }, [conversation?.id]);
-
-  // Auto-scroll to bottom
+  // 2. Auto-scroll
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Drag handlers
+  // 3. Drag Handlers
   const handleMouseDown = (e) => {
     if (e.target.closest('.drag-handle')) {
       isDragging.current = true;
@@ -203,111 +116,95 @@ export default function AIOrchestrator({ onJobCreate, onConfigUpdate }) {
     document.removeEventListener('mouseup', handleMouseUp);
   };
 
+  // 4. File Upload (Converted to Local Base64 for Ollama)
   const handleFileUpload = async (e) => {
     const files = Array.from(e.target.files);
-    if (!baseClient?.integrations?.Core?.UploadFile) {
-      setMessages((prev) => ([
-        ...prev,
-        {
-          role: 'assistant',
-          content: 'File uploads are unavailable because the base44 integration is not configured.'
-        }
-      ]));
-      return;
-    }
+    if (files.length === 0) return;
+
     setIsProcessing(true);
-    
-    const uploaded = [];
-    for (const file of files) {
-      try {
-        const { file_url } = await baseClient.integrations.Core.UploadFile({ file });
-        uploaded.push({ name: file.name, url: file_url });
-      } catch (error) {
-        console.error('Upload failed:', error);
+    const newUploads = [];
+
+    // Helper to read file as Base64
+    const readFile = (file) => {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve({ 
+          name: file.name, 
+          // Strip the data:image/png;base64, prefix for Ollama if needed, 
+          // but usually the client handles clean up. We store raw base64 here.
+          // Note: InternVL3 expects just the base64 string usually.
+          data: reader.result 
+        });
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    };
+
+    try {
+      for (const file of files) {
+        const result = await readFile(file);
+        newUploads.push(result);
       }
+      setUploadedFiles(prev => [...prev, ...newUploads]);
+    } catch (err) {
+      console.error("File read error:", err);
+    } finally {
+      setIsProcessing(false);
     }
-    
-    setUploadedFiles(prev => [...prev, ...uploaded]);
-    setIsProcessing(false);
   };
 
+  // 5. Send Message (The "Safety Net" Version)
   const handleSendMessage = async () => {
     if (!inputValue.trim() && uploadedFiles.length === 0) return;
 
-    const messageContent = inputValue.trim() || 'I have uploaded files for processing';
-    const fileUrls = uploadedFiles.map(f => f.url);
+    const userText = inputValue.trim();
+    
+    // Prepare images for Ollama (strip mime type prefix if present)
+    const images = uploadedFiles.map(f => {
+      return f.data.replace(/^data:image\/[a-z]+;base64,/, "");
+    });
 
-    setIsProcessing(true);
+    // Create the optimistic message for UI
+    const newUserMsg = { 
+      role: 'user', 
+      content: userText || (images.length ? "[Image Uploaded]" : "System Check"),
+      images: images // Store internally for UI if needed, but mainly for API
+    };
+
+    const nextMessages = [...messages, newUserMsg];
+    
+    // Reset Input
     setInputValue('');
     setUploadedFiles([]);
+    setIsProcessing(true); // LOCK INPUT
 
     try {
-      if (base44Healthy) {
-        if (!conversation || !baseClient?.agents?.addMessage) {
-          setMessages((prev) => ([
-            ...prev,
-            { role: 'assistant', content: 'Messaging is unavailable until base44 is connected.' }
-          ]));
-          return;
-        }
-        const start = performance?.now ? performance.now() : Date.now();
-        await baseClient.agents.addMessage(conversation, {
-          role: 'user',
-          content: messageContent,
-          file_urls: fileUrls.length > 0 ? fileUrls : undefined
-        });
-        const latencyMs = Math.round((performance?.now ? performance.now() : Date.now()) - start);
-        logProviderMetric({ providerName: 'base44', latencyMs, ok: true });
-      } else if (!ollamaHealthy) {
-        setMessages((prev) => ([
-          ...prev,
-          {
-            role: 'assistant',
-            content:
-              'Both base44 and Ollama are unavailable. Please check provider health and try again.'
-          }
-        ]));
-        setIsProcessing(false);
-        return;
-      } else {
-        if (isBase44Available && !base44Healthy) {
-          const notice = 'Base44 is unavailable, falling back to Ollama.';
-          setFallbackNotice(notice);
-          setMessages((prev) => ([
-            ...prev,
-            { role: 'assistant', content: notice }
-          ]));
-        }
-        const nextMessages = [
-          ...messages,
-          { role: 'user', content: messageContent }
-        ];
-        setMessages(nextMessages);
-        const responseText = await sendOllamaChat({
-          messages: nextMessages,
-          baseUrl: ollamaConfig.baseUrl,
-          model: ollamaConfig.model,
-          timeoutMs: ollamaConfig.timeoutMs
-        });
-        setMessages((prev) => ([
-          ...prev,
-          { role: 'assistant', content: responseText || 'No response received from Ollama.' }
-        ]));
-      }
-    } catch (error) {
-      console.error('Failed to send message:', error);
-      logProviderMetric({ providerName: provider, latencyMs: null, ok: false, error: error.message });
-      if (provider === 'base44') {
-        setProviderHealth((prev) => ({
-          ...prev,
-          base44: { status: 'unhealthy', checkedAt: new Date().toISOString(), error: error.message }
-        }));
-      }
+      setMessages(nextMessages);
+
+      // Call Ollama
+      const responseText = await sendOllamaChat({
+        messages: nextMessages,
+        baseUrl: ollamaConfig.baseUrl,
+        model: ollamaConfig.model,
+        timeoutMs: ollamaConfig.timeoutMs, // Uses the new 5 min timeout
+        images: images // Pass images explicitly to the helper
+      });
+
+      // Add Response
       setMessages((prev) => ([
         ...prev,
-        { role: 'assistant', content: `Error sending message: ${error.message}` }
+        { role: 'assistant', content: responseText || 'No response received.' }
       ]));
-      setIsProcessing(false);
+
+    } catch (error) {
+      console.error('Transmission failed:', error);
+      setMessages((prev) => ([
+        ...prev,
+        { role: 'assistant', content: `Error: ${error.message}` }
+      ]));
+    } finally {
+      // THE SAFETY NET: This runs no matter what, unlocking the UI
+      setIsProcessing(false); 
     }
   };
 
@@ -349,15 +246,15 @@ export default function AIOrchestrator({ onJobCreate, onConfigUpdate }) {
       animate={{ opacity: 1, scale: 1 }}
       onMouseDown={handleMouseDown}
     >
-      <Card className="glass-panel overflow-hidden shadow-2xl">
+      <Card className="glass-panel overflow-hidden shadow-2xl border-none">
         {/* Header */}
         <div className="drag-handle bg-gradient-to-r from-[var(--color-gold)] to-[var(--color-copper)] p-4 cursor-move">
           <div className="flex items-center justify-between text-white">
             <div className="flex items-center gap-2">
-              <div className="h-2 w-2 rounded-full bg-green-400 animate-pulse" />
-              <span className="font-semibold">Forge Intelligence</span>
+              <div className={`h-2 w-2 rounded-full ${providerHealth.ollama.status === 'unhealthy' ? 'bg-red-500' : 'bg-green-400'} animate-pulse`} />
+              <span className="font-semibold">Sentry Interface</span>
               <span className="text-[10px] uppercase tracking-wide bg-white/20 px-2 py-0.5 rounded-full">
-                {provider}
+                LOCAL
               </span>
             </div>
             <div className="flex gap-2">
@@ -384,38 +281,34 @@ export default function AIOrchestrator({ onJobCreate, onConfigUpdate }) {
         {/* Messages */}
         {!isMinimized && (
           <>
-            {fallbackNotice && (
-              <div className="px-4 py-2 text-xs text-[var(--color-copper)] bg-[var(--color-satin)] border-b border-[var(--color-gold)]/20">
-                {fallbackNotice}
-              </div>
-            )}
             <div className="h-[400px] overflow-y-auto p-4 space-y-4 bg-gradient-to-b from-white/50 to-white/30 dark:from-[var(--color-pine-teal)]/50 dark:to-[var(--color-pine-teal)]/30">
               {messages.length === 0 && (
                 <div className="text-center text-sm text-gray-500 mt-8">
                   <MessageSquare className="h-12 w-12 mx-auto mb-4 text-[var(--color-gold)]" />
-                  <p className="font-medium text-[var(--color-pine-teal)]">Welcome to The Forge</p>
-                  <p className="text-xs mt-2">I'll guide you through the pipeline</p>
+                  <p className="font-medium text-[var(--color-pine-teal)]">Sentry Online</p>
+                  <p className="text-xs mt-2">Systems Nominal.</p>
                 </div>
               )}
               {messages.map((msg, idx) => (
                 <MessageBubble key={idx} message={msg} />
               ))}
               {isProcessing && (
-                <div className="flex items-center gap-2 text-sm text-gray-500">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span>Processing...</span>
+                <div className="flex items-center gap-2 text-sm text-gray-500 justify-center py-2">
+                  <Loader2 className="h-4 w-4 animate-spin text-[var(--color-gold)]" />
+                  <span>Analyzing...</span>
                 </div>
               )}
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Uploaded Files */}
+            {/* Uploaded Files Preview */}
             {uploadedFiles.length > 0 && (
               <div className="px-4 py-2 bg-[var(--color-satin)] border-t border-[var(--color-gold)]/20">
                 {uploadedFiles.map((file, idx) => (
                   <div key={idx} className="text-xs text-[var(--color-pine-teal)] flex items-center gap-2">
                     <Upload className="h-3 w-3" />
                     <span className="truncate">{file.name}</span>
+                    <span className="text-xs text-gray-400">(Ready)</span>
                   </div>
                 ))}
               </div>
@@ -428,6 +321,7 @@ export default function AIOrchestrator({ onJobCreate, onConfigUpdate }) {
                   ref={fileInputRef}
                   type="file"
                   multiple
+                  accept="image/*" 
                   className="hidden"
                   onChange={handleFileUpload}
                 />
@@ -436,7 +330,7 @@ export default function AIOrchestrator({ onJobCreate, onConfigUpdate }) {
                   size="icon"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={isProcessing}
-                  className="border-[var(--color-gold)]"
+                  className="border-[var(--color-gold)] hover:bg-[var(--color-gold)]/10"
                 >
                   <Upload className="h-4 w-4" />
                 </Button>
@@ -444,9 +338,9 @@ export default function AIOrchestrator({ onJobCreate, onConfigUpdate }) {
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
                   onKeyPress={handleKeyPress}
-                  placeholder="Ask about embedding, extraction, or configuration..."
+                  placeholder="Enter command..."
                   disabled={isProcessing}
-                  className="flex-1 border-[var(--color-gold)]/30"
+                  className="flex-1 border-[var(--color-gold)]/30 focus:border-[var(--color-gold)]"
                 />
                 <Button
                   onClick={handleSendMessage}

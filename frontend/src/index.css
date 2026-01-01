@@ -1,7 +1,6 @@
 @tailwind base;
 @tailwind components;
-@tailwind utilities;
-
+@tailwind utilities; 
 
 /* :root {
   font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
@@ -9,8 +8,8 @@
   font-weight: 400;
 
   color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
+  color: #f7fbfc;
+  background-color: #34a19c;
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -20,11 +19,11 @@
 
 a {
   font-weight: 500;
-  color: #646cff;
+  color: linear-gradient(105deg, var(--color-gold), var(--color-copper));
   text-decoration: inherit;
 }
 a:hover {
-  color: #535bf2;
+  color: #e2bb3a;
 }
 
 body {
@@ -47,12 +46,12 @@ button {
   font-size: 1em;
   font-weight: 500;
   font-family: inherit;
-  background-color: #1a1a1a;
+  background-color: #34a19c;
   cursor: pointer;
   transition: border-color 0.25s;
 }
 button:hover {
-  border-color: #646cff;
+  border-color: #f2994e;
 }
 button:focus,
 button:focus-visible {
@@ -61,14 +60,14 @@ button:focus-visible {
 
 @media (prefers-color-scheme: light) {
   :root {
-    color: #213547;
-    background-color: #ffffff;
+    color: #f7fbfc;
+    background-color: #34a19c;
   }
   a:hover {
-    color: #747bff;
+    color: #e2bb3a;
   }
   button {
-    background-color: #f9f9f9;
+    background-color: #34a19c;
   }
 } */
 
@@ -76,79 +75,78 @@ button:focus-visible {
 
 @layer base {
   :root {
-    --background: 30 5% 92.2%;
-    --foreground: 190 72.7% 17.3%;
-    --card: 0 0% 100%;
-    --card-foreground: 190 72.7% 17.3%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 190 72.7% 17.3%;
-    --primary: 14 57.8% 39%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 28 45.3% 52%;
-    --secondary-foreground: 190 72.7% 17.3%;
-    --muted: 28 32.8% 76.7%;
-    --muted-foreground: 190 30% 32%;
-    --accent: 28 45.3% 52%;
-    --accent-foreground: 190 72.7% 17.3%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 210 14.3% 83.5%;
-    --input: 210 14.3% 83.5%;
-    --ring: 14 57.8% 39%;
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
-    --radius: 0.5rem;
-    --sidebar-background: 30 5% 96%;
-    --sidebar-foreground: 190 35% 24%;
-    --sidebar-primary: 14 57.8% 39%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 30 5% 92.2%;
-    --sidebar-accent-foreground: 190 72.7% 17.3%;
-    --sidebar-border: 210 14.3% 83.5%;
-    --sidebar-ring: 28 45.3% 52%;
-    --color-gold: #bc804d;
-    --color-copper: #9d442a;
-    --color-satin: #ecebea;
-    --color-mist: #cfd5db;
-    --color-pine-teal: #0c414c;
-    --color-muted: #d7c2b0;
+    --background: #34a19c;
+    --foreground: #f7fbfc;
+    --card: #34a19c;
+    --card-foreground: #f7fbfc;
+    --popover: #34a19c;
+    --popover-foreground: #f7fbfc;
+    --primary: #34a19c;
+    --primary-foreground: #f7fbfc;
+    --secondary: #e2bb3a;
+    --secondary-foreground: #f7fbfc;
+    --muted: #fde0c7;
+    --muted-foreground: #f7fbfc;
+    --accent: #f2994e;
+    --accent-foreground: #f7fbfc;
+    --destructive: #e2bb3a;
+    --destructive-foreground: #f7fbfc;
+    --border: #f2994e;
+    --input: #233c43;
+    --ring: #fde0c7;
+    --chart-1: #f2994e;
+    --chart-2: #a2fcea;
+    --chart-3: #f2994e;
+    --chart-4: #a2fcea;
+    --chart-5: #f2994e;
+    --sidebar-background: #34a19c;
+    --sidebar-foreground: #f7fbfc;
+    --sidebar-primary: #34a19c;
+    --sidebar-primary-foreground: #f7fbfc;
+    --sidebar-accent: #f2994e;
+    --sidebar-accent-foreground: #f7fbfc;
+    --sidebar-border: #f2994e;
+    --sidebar-ring: #fde0c7;
+    --color-gold: #e2bb3a;
+    --color-copper: #f2994e;
+    --color-satin: #f7fbfc;
+    --color-mist: #a2fcea;
+    --color-pine-teal: #34a19c;
+    --color-muted: #fde0c7;
   }
   .dark {
-    --background: 190 72.7% 12%;
-    --foreground: 30 5% 92.2%;
-    --card: 190 72.7% 14%;
-    --card-foreground: 30 5% 92.2%;
-    --popover: 190 72.7% 14%;
-    --popover-foreground: 30 5% 92.2%;
-    --primary: 28 45.3% 52%;
-    --primary-foreground: 190 72.7% 12%;
-    --secondary: 14 57.8% 39%;
-    --secondary-foreground: 30 5% 92.2%;
-    --muted: 190 20% 22%;
-    --muted-foreground: 30 5% 80%;
-    --accent: 14 57.8% 39%;
-    --accent-foreground: 30 5% 92.2%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 190 30% 24%;
-    --input: 190 30% 24%;
-    --ring: 28 45.3% 52%;
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
-    --sidebar-background: 190 72.7% 12%;
-    --sidebar-foreground: 30 5% 92.2%;
-    --sidebar-primary: 28 45.3% 52%;
-    --sidebar-primary-foreground: 190 72.7% 12%;
-    --sidebar-accent: 190 30% 20%;
-    --sidebar-accent-foreground: 30 5% 92.2%;
-    --sidebar-border: 190 30% 24%;
-    --sidebar-ring: 28 45.3% 52%;
+    --background: #9d442a;
+    --foreground: #1a2f35;
+    --card: #9d442a;
+    --card-foreground: #1a2f35;
+    --popover: #9d442a;
+    --popover-foreground: #1a2f35;
+    --primary: #d7c2b0;
+    --primary-foreground: #1a2f35;
+    --secondary: #9d442a;
+    --secondary-foreground: #1a2f35;
+    --muted: #6f6155;
+    --muted-foreground: #233c43;
+    --accent: #f3f2f1;
+    --accent-foreground: #bc804d;
+    --destructive: #9d442a;
+    --destructive-foreground: #1a2f35;
+    --border: #f3f2f1;
+    --input: #233c43;
+    --ring: #bc804d;
+    --chart-1: #233c43;
+    --chart-2: #d7c2b0;
+    --chart-3: #233c43;
+    --chart-4: #d7c2b0;
+    --chart-5: #233c43;
+    --sidebar-background: #f3f2f1;
+    --sidebar-foreground: #1a2f35;
+    --sidebar-primary: #9d442a;
+    --sidebar-primary-foreground: #1a2f35;
+    --sidebar-accent: #f3f2f1;
+    --sidebar-accent-foreground: #bc804d;
+    --sidebar-border: #f3f2f1;
+    --sidebar-ring: #bc804d;
     --color-gold: #bc804d;
     --color-copper: #9d442a;
     --color-satin: #1a2f35;
@@ -171,17 +169,18 @@ button:focus-visible {
 
 @layer components {
   .glass-panel {
-    background: color-mix(in srgb, var(--color-satin) 75%, white 25%);
-    border: 1px solid color-mix(in srgb, var(--color-gold) 30%, transparent 70%);
-    box-shadow: 0 12px 30px rgba(12, 65, 76, 0.12);
+    background: color-mix(in srgb, var(--color-satin) 75%, var(--color-mist) 25%);
+    border: linear-gradient(in srgb, var(--color-gold) 100%, transparent 70%);
+    box-shadow: 0 12px 30px var(--color-pine-teal) 45%;
+    -webkit-backdrop-filter: blur(14px);
     backdrop-filter: blur(14px);
   }
 
   .heritage-gradient-light {
-    background: linear-gradient(135deg, var(--color-gold) 0%, var(--color-copper) 100%);
+    background: linear-gradient(135deg, var(--color-pine-teal) 50%, var(--color-pine-teal) 100%);
   }
 
   .heritage-gradient-subtle {
-    background: linear-gradient(135deg, color-mix(in srgb, var(--color-gold) 12%, transparent), transparent);
+    background: linear-gradient(135deg, color-mix(in srgb, var(--color-muted) 80%, transparent), transparent);
   }
 }

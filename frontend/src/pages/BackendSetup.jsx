@@ -33,7 +33,7 @@ import requests
 
 @dataclass
 class ForgeApiClient:
-    base_url: str = "http://localhost:5000"
+    base_url: str = "http://127.0.0.1:5000"
 
     def _url(self, path: str) -> str:
         return f"{self.base_url.rstrip('/')}{path}"
@@ -350,7 +350,7 @@ pip install flask flask-cors flask-socketio requests
                       <div className="relative">
                         <pre className="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto text-sm">
 python app.py
-# Server starts on http://localhost:5000
+# Server starts on http://127.0.0.1:5000
                         </pre>
                         <Button
                           size="sm"
@@ -371,7 +371,7 @@ python app.py
                     <div>
                       <h4 className="font-semibold text-green-900 mb-1">Ready to Go!</h4>
                       <p className="text-sm text-green-800">
-                        Your dashboard will automatically connect to <code>http://localhost:5000</code>. 
+                        Your dashboard will automatically connect to <code>http://127.0.0.1:5000</code>. 
                         Test the connection using the health check endpoint.
                       </p>
                     </div>
