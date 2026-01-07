@@ -81,6 +81,10 @@ backend/uploads/**
 .DS_Store
 Thumbs.db
 
+# --- Jupyter Notebooks ---
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
 # --- Project Specifics ---
 # For a library, you might track this; for an app, often ignored
 # .python-version
